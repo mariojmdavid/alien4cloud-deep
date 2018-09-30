@@ -21,6 +21,7 @@ import es.upv.indigodc.service.BuilderService;
 import es.upv.indigodc.service.EventService;
 import es.upv.indigodc.service.MappingService;
 import es.upv.indigodc.service.OrchestratorConnector;
+import es.upv.indigodc.service.StatusService;
 import es.upv.indigodc.service.UserService;
 import es.upv.indigodc.service.model.OrchestratorDeploymentMapping;
 import es.upv.indigodc.service.model.OrchestratorIamException;
@@ -90,6 +91,9 @@ public class IndigoDcOrchestrator implements IOrchestratorPlugin<CloudConfigurat
   /** Manages the events produced by the Orchestrator. */
   @Inject
   private EventService eventService;
+  
+  @Inject
+  protected StatusService statusService;
 
   /** Manages the logged in user that executes this instance of service. */
   @Autowired
@@ -290,52 +294,7 @@ public class IndigoDcOrchestrator implements IOrchestratorPlugin<CloudConfigurat
   @Override
   public void getStatus(PaaSDeploymentContext deploymentContext,
       IPaaSCallback<DeploymentStatus> callback) {
-    log.info("call get status");
-    String a4cUuidDeployment = deploymentContext.getDeployment().getId();
-
-    final OrchestratorDeploymentMapping orchestratorDeploymentMapping =
-        mappingService.getByAlienDeploymentId(a4cUuidDeployment);
-    if (orchestratorDeploymentMapping != null) {
-      final String orchestratorUuidDeployment =
-          orchestratorDeploymentMapping.getOrchestratorUuidDeployment();
-      if (orchestratorUuidDeployment != null) {
-        final CloudConfiguration configuration = cloudConfigurationManager
-            .getCloudConfiguration(deploymentContext.getDeployment().getOrchestratorId());
-        try {
-          OrchestratorResponse response = orchestratorConnector.callDeploymentStatus(configuration,
-              userService.getCurrentUser().getUsername(),
-              userService.getCurrentUser().getPlainPassword(), orchestratorUuidDeployment);
-          String statusTopologyDeployment = response.getStatusTopologyDeployment();
-          callback.onSuccess(
-              Util.indigoDcStatusToDeploymentStatus(statusTopologyDeployment.toUpperCase()));
-
-        } catch (NoSuchFieldException er) {
-          log.error("Error getStatus", er);
-          callback.onFailure(er);
-          callback.onSuccess(DeploymentStatus.UNKNOWN);
-        } catch (IOException er) {
-          log.error("Error getStatus", er);
-          callback.onFailure(er);
-          callback.onSuccess(DeploymentStatus.UNKNOWN);
-        } catch (OrchestratorIamException er) {
-          switch (er.getHttpCode()) {
-            case 404:
-              callback.onSuccess(DeploymentStatus.UNDEPLOYED);
-              break;
-            default:
-              callback.onFailure(er);
-          }
-          log.error("Error deployment ", er);
-        } catch (StatusNotFoundException er) {
-          callback.onFailure(er);
-          er.printStackTrace();
-        }
-      } else {
-        callback.onSuccess(DeploymentStatus.UNDEPLOYED);
-      }
-    } else {
-      callback.onSuccess(DeploymentStatus.UNDEPLOYED);
-    }
+    statusService.getStatus(deploymentContext, callback);
   }
 
   @Override
