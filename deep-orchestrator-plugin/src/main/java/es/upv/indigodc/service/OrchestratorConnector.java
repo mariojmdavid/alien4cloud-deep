@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import es.upv.indigodc.configuration.CloudConfiguration;
 import es.upv.indigodc.service.model.OrchestratorIamException;
-import es.upv.indigodc.service.model.OrchestratorResponse;
+import es.upv.indigodc.service.model.response.OrchestratorResponse;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -196,6 +196,28 @@ public class OrchestratorConnector {
 
     StringBuilder sbuf = new StringBuilder(cloudConfiguration.getOrchestratorEndpoint());
     sbuf.append(WS_PATH_DEPLOYMENTS).append("/").append(deploymentId);
+
+    Map<String, String> headers = new HashMap<>();
+    AccessToken accessToken = this.obtainAuthTokens(cloudConfiguration, userName, userPassword);
+    headers.put("Accept", "application/json");
+    headers.put("Content-Type", "application/json");
+    headers.put("Authorization", "Bearer " + accessToken.getAccessToken());
+
+    URL requestUrl = new URL(sbuf.toString());
+
+    SSLContext sslContext = getSslContext(cloudConfiguration);
+    return restCall(requestUrl, null, headers,
+        isUrlSecured(cloudConfiguration.getOrchestratorEndpoint()), sslContext, HttpMethod.GET);
+  }
+  
+  public OrchestratorResponse callGetResources(CloudConfiguration cloudConfiguration,
+      String userName, String userPassword, String deploymentId)
+      throws IOException, NoSuchFieldException, OrchestratorIamException {
+    log.info("call get resources for orchestrator deployment UUID " + deploymentId);
+
+    StringBuilder sbuf = new StringBuilder(cloudConfiguration.getOrchestratorEndpoint());
+    sbuf.append(WS_PATH_DEPLOYMENTS).append("/").append(deploymentId).append("/")
+      .append("resources");
 
     Map<String, String> headers = new HashMap<>();
     AccessToken accessToken = this.obtainAuthTokens(cloudConfiguration, userName, userPassword);

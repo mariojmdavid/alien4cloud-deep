@@ -88,14 +88,20 @@ public class StatusManager {
     DeepDeploymentStatus dds = new DeepDeploymentStatus(a4cDeploymentPaasId, a4cDeploymentId,
         orchestratorDeploymentUuid, orchestratorId, error, status);
     statusByA4cDeploymentPaasId.put(a4cDeploymentPaasId, dds);
-    statusByA4cDeploymentId.put(a4cDeploymentId, dds);
-    statusByOrchestratorDeploymentUuid.put(orchestratorDeploymentUuid, dds);
+    
+    // It is possible that we only have the a4cDeploymentPaasId (for instance
+    // when a deployment failed)
+    if (a4cDeploymentId != null)
+      statusByA4cDeploymentId.put(a4cDeploymentId, dds);
+    if (orchestratorDeploymentUuid != null)
+      statusByOrchestratorDeploymentUuid.put(orchestratorDeploymentUuid, dds);
     
   }
   
   public synchronized final Collection<DeepDeploymentStatus> getActiveDeployments() {
     return statusByA4cDeploymentPaasId.values().stream()
-        .filter(dds -> dds.getStatus() != DeploymentStatus.UNDEPLOYED)
+        .filter(dds -> dds.getStatus() != DeploymentStatus.UNDEPLOYED 
+          && dds.getStatus() != DeploymentStatus.FAILURE)
         .collect(Collectors.toList());
   }
   

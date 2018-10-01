@@ -3,6 +3,7 @@ package es.upv.indigodc.service;
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,8 +35,8 @@ import es.upv.indigodc.model.NodeInstanceStatus;
 import es.upv.indigodc.service.model.DeepDeploymentStatus;
 import es.upv.indigodc.service.model.OrchestratorDeploymentMapping;
 import es.upv.indigodc.service.model.OrchestratorIamException;
-import es.upv.indigodc.service.model.OrchestratorResponse;
 import es.upv.indigodc.service.model.StatusNotFoundException;
+import es.upv.indigodc.service.model.response.OrchestratorResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Function;
 import com.google.common.collect.Maps;
@@ -75,6 +76,9 @@ public class StatusService {
 
   @Resource
   protected CloudConfigurationManager cloudConfigurationManager;
+  
+  @Autowired
+  protected OrchestratorConnector orchestratorConnector;
 
   public static class ObtainStatusDeployment implements Runnable {
 
@@ -110,11 +114,7 @@ public class StatusService {
               dds.getOrchestratorDeploymentUuid(), null,
               Util.indigoDcStatusToDeploymentStatus(statusTopologyDeployment.toUpperCase()));
 
-        } catch (NoSuchFieldException er) {
-          log.error("Error getStatus", er);
-          statusManager.updateStatusByOrchestratorDeploymentUuid(
-              dds.getOrchestratorDeploymentUuid(), er, DeploymentStatus.UNKNOWN);
-        } catch (IOException er) {
+        } catch (NoSuchFieldException | IOException | StatusNotFoundException er) {
           log.error("Error getStatus", er);
           statusManager.updateStatusByOrchestratorDeploymentUuid(
               dds.getOrchestratorDeploymentUuid(), er, DeploymentStatus.UNKNOWN);
@@ -129,15 +129,64 @@ public class StatusService {
                   dds.getOrchestratorDeploymentUuid(), er, DeploymentStatus.UNKNOWN);
           }
           log.error("Error deployment ", er);
-        } catch (StatusNotFoundException er) {
-          statusManager.updateStatusByOrchestratorDeploymentUuid(
-              dds.getOrchestratorDeploymentUuid(), er, DeploymentStatus.UNKNOWN);
-          er.printStackTrace();
         }
       }
     }
+  }
+  
+  
+  public static class ObtainStatusDeploymentNodes implements Runnable {
 
+    @Autowired
+    protected OrchestratorConnector orchestratorConnector;
 
+    protected StatusManager statusManager;
+
+    protected CloudConfigurationManager cloudConfigurationManager;
+
+    protected UserService userService;
+
+    public ObtainStatusDeploymentNodes(StatusManager statusManager,
+        CloudConfigurationManager cloudConfigurationManager, UserService userService) {
+      this.statusManager = statusManager;
+      this.cloudConfigurationManager = cloudConfigurationManager;
+      this.userService = userService;
+    }
+
+    @Override
+    public void run() {
+      final Collection<DeepDeploymentStatus> activeDeployments =
+          statusManager.getActiveDeployments();
+      for (final DeepDeploymentStatus dds : activeDeployments) {
+        final CloudConfiguration configuration =
+            cloudConfigurationManager.getCloudConfiguration(dds.getOrchestratorId());
+        try {
+          OrchestratorResponse response = orchestratorConnector.callGetResources(configuration,
+              userService.getCurrentUser().getUsername(),
+              userService.getCurrentUser().getPlainPassword(), dds.getOrchestratorDeploymentUuid());
+          String statusTopologyDeployment = response.getStatusTopologyDeployment();
+          statusManager.updateStatusByOrchestratorDeploymentUuid(
+              dds.getOrchestratorDeploymentUuid(), null,
+              Util.indigoDcStatusToDeploymentStatus(statusTopologyDeployment.toUpperCase()));
+
+        } catch (NoSuchFieldException | IOException | StatusNotFoundException er) {
+          log.error("Error getStatus", er);
+          statusManager.updateStatusByOrchestratorDeploymentUuid(
+              dds.getOrchestratorDeploymentUuid(), er, DeploymentStatus.UNKNOWN);
+        } catch (OrchestratorIamException er) {
+          switch (er.getHttpCode()) {
+            case 404:
+              statusManager.updateStatusByOrchestratorDeploymentUuid(
+                  dds.getOrchestratorDeploymentUuid(), null, DeploymentStatus.UNDEPLOYED);
+              break;
+            default:
+              statusManager.updateStatusByOrchestratorDeploymentUuid(
+                  dds.getOrchestratorDeploymentUuid(), er, DeploymentStatus.UNKNOWN);
+          }
+          log.error("Error deployment ", er);
+        }
+      }
+    }
   }
 
   public void init(Map<String, PaaSTopologyDeploymentContext> activeDeploymentContexts) {
@@ -174,6 +223,82 @@ public class StatusService {
       }
     } else {
       callback.onSuccess(DeploymentStatus.UNKNOWN);
+    }
+  }
+  
+  public void getInstancesInformation(PaaSTopologyDeploymentContext deploymentContext,
+      IPaaSCallback<Map<String, Map<String, InstanceInformation>>> callback) {
+    log.info("call getInstancesInformation");
+    String a4cUuidDeployment = deploymentContext.getDeployment().getId();
+
+    // deploymentContext.getDeploymentTopology().get
+    final Map<String, Map<String, InstanceInformation>> topologyInfo = new HashMap<>();
+    final Map<String, String> runtimeProps = new HashMap<>();
+    final Map<String, InstanceInformation> instancesInfo = new HashMap<>();
+    final String groupId = deploymentContext.getDeploymentPaaSId();
+    // final String
+    final OrchestratorDeploymentMapping orchestratorDeploymentMapping =
+        mappingService.getByAlienDeploymentId(a4cUuidDeployment);
+
+    if (orchestratorDeploymentMapping != null) {
+      final String orchestratorUuidDeployment =
+          orchestratorDeploymentMapping.getOrchestratorUuidDeployment(); 
+      // .getDeploymentId();//.getDeploymentPaaSId();
+
+      final CloudConfiguration configuration = cloudConfigurationManager
+          .getCloudConfiguration(deploymentContext.getDeployment().getOrchestratorId());
+      try {
+        OrchestratorResponse response = orchestratorConnector.callDeploymentStatus(configuration,
+            userService.getCurrentUser().getUsername(),
+            userService.getCurrentUser().getPlainPassword(), orchestratorUuidDeployment);
+
+        log.info(response.getResponse().toString());
+        Util.InstanceStatusInfo instanceStatusInfo = Util
+            .indigoDcStatusToInstanceStatus(response.getStatusTopologyDeployment().toUpperCase());
+
+        // Map<String, String> outputs = new HashMap<>();
+        // outputs.put("Compute_public_address", "none");
+        // runtimeProps.put("Compute_public_address", "value");
+        final InstanceInformation instanceInformation =
+            new InstanceInformation(instanceStatusInfo.getState(),
+                instanceStatusInfo.getInstanceStatus(), runtimeProps, runtimeProps,
+                // outputs);
+                response.getOutputs());
+        instancesInfo.put(a4cUuidDeployment, instanceInformation);
+        topologyInfo.put(groupId, instancesInfo);
+        callback.onSuccess(topologyInfo);
+      } catch (NoSuchFieldException er) {
+        callback.onFailure(er);
+        log.error("Error getInstancesInformation", er);
+      } catch (IOException er) {
+        callback.onFailure(er);
+        log.error("Error getInstancesInformation", er);
+      } catch (OrchestratorIamException er) {
+        final InstanceInformation instanceInformation = new InstanceInformation("UNKNOWN",
+            InstanceStatus.FAILURE, runtimeProps, runtimeProps, new HashMap<>());
+        instancesInfo.put(a4cUuidDeployment, instanceInformation);
+        topologyInfo.put(a4cUuidDeployment, instancesInfo);
+        callback.onSuccess(topologyInfo);
+        instancesInfo.put(a4cUuidDeployment, instanceInformation);
+        topologyInfo.put(a4cUuidDeployment, instancesInfo);
+        switch (er.getHttpCode()) {
+          case 404:
+            callback.onSuccess(topologyInfo);
+            break;
+          default:
+            callback.onFailure(er);
+        }
+        log.error("Error deployment ", er);
+      } catch (StatusNotFoundException er) {
+        callback.onFailure(er);
+        log.error("Error deployment ", er);
+      }
+    } else {
+      final InstanceInformation instanceInformation = new InstanceInformation("UNKNOWN",
+          InstanceStatus.FAILURE, runtimeProps, runtimeProps, new HashMap<>());
+      instancesInfo.put(a4cUuidDeployment, instanceInformation);
+      topologyInfo.put(a4cUuidDeployment, instancesInfo);
+      callback.onSuccess(topologyInfo);
     }
   }
 
