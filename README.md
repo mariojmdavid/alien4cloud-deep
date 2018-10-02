@@ -25,9 +25,10 @@ The default username / password are *admin*/*admin*. Please change them!
 
 ### Prerequisites
 
-Aside of the official requirements found at http://alien4cloud.github.io/#/documentation/2.0.0/getting_started/new_getting_started.html, Alien4Cloud needs at least 3GB of RAM to run and a dual core CPU.
+Aside of the official requirements found at [[Res2]](#res2), Alien4Cloud needs at least 3GB of RAM to run and a dual core CPU.
 
-You also need Docker, we tested with the CE version 17.03 and above. We strongly advise you to install the latest version from the official https://docs.docker.com/install/ site.
+You also need Docker, we tested with the CE version 17.03 and above. 
+We strongly advise you to install the latest version from the official Docker site.
 
 ### Docker Arguments
 
@@ -89,7 +90,7 @@ If you want to activate the HTTPS protocol for the A4C instance, you must set th
 
 ### Deployment
 
-You can get the docker image from [DockerHub IndigoDC repo](https://hub.docker.com/r/indigodatacloud/alien4cloud-deep/).
+You can get the docker image from DockerHub IndigoDC repo [[Res5]](#res5).
 
 
 * Get the Docker container by running:
@@ -130,7 +131,7 @@ where you have to specify the secure port, the root path where the certificates 
 
 ### REST API
 
-A4C supports a [REST API](http://alien4cloud.github.io/#/documentation/2.0.0/rest/overview.html) that can be used for many operations.
+A4C supports a REST API [[Res4]](#res4) that can be used for many operations.
 We list some examples in the following paragraphs.
 
 * (MUST BE DONE FIRST) authenticate & set general variables
@@ -166,8 +167,8 @@ curl -k -b "${ALIEN_COOKIE}" -XPUT -H 'Content-Type: application/json; charset=U
 
 ### Usage
 
-Once Alien4Cloud started, you can connect to it using a [supported browser](https://alien4cloud.github.io/#/documentation/2.0.0/admin_guide/supported_platforms.html).
-Before anything else, one should take a look at the [Alien4Cloud documentation](https://alien4cloud.github.io/#/documentation/2.0.0/).
+Once Alien4Cloud started, you can connect to it using a supported browser [[Res3]](#res3).
+Before anything else, one should take a look at the [[Res2]](#res2).
 
 #### Plugin activation
 
@@ -271,9 +272,9 @@ We require a minimum of 70% overall coverage by unit tests. When the plugin is b
 
 #### Style
 
-The A4C orchestrator plugin's Java code must respect the Google Java formatting style, on [Github](https://github.com/google/google-java-format).
+The A4C orchestrator plugin's Java code must respect the Google Java formatting style [[Res6]](#res6).
 
-We use checkstyle with Maven, as a plugin. This way we can rest assured that the committed code, that passes the continuous integration testing, respects the required formatting. The building process fails when warnings are encountered. We use the [oficial checkstyle repository](https://github.com/checkstyle/checkstyle) to obtain a stable version of _com.puppycrawl.tools.checkstyle_ dependency of the _org.apache.maven.plugins.maven-checkstyle-plugin_ plugin. The checkstyle team includes a formatter ready to be used that respects Google's rules.
+We use checkstyle with Maven, as a plugin. This way we can rest assured that the committed code, that passes the continuous integration testing, respects the required formatting. The building process fails when warnings are encountered. We use the oficial checkstyle repository [[Res7]](#res7) to obtain a stable version of _com.puppycrawl.tools.checkstyle_ dependency of the _org.apache.maven.plugins.maven-checkstyle-plugin_ plugin. The checkstyle team includes a formatter ready to be used that respects Google's rules.
 
 ## User Guide
 
@@ -281,17 +282,17 @@ This section contains the information necessary for the user to use an already d
 We consider that the administrator(s) followed the guidelines from the previous section to set up a Docker container ready to be used.
 Please contact your administrator if you encounter any problem.
 
-We also strongly recommend to read the official guide available at [{2}](#{2}).
+We also strongly recommend to read the official guide available at [[Res2]](#res2).
 We try to summarize the steps in the following sub-sections.
 
 ### Registration
 
 Alien4Cloud can only be used by registered users.
-Before anything, please be sure that you have an account registered with [{1}](#{1}).
+Before anything, please be sure that you have an account registered with [[Res1]](#res1).
 
 ### Login
 
-You have to use the user name and password as entered during the registration process on [{1}](#{1}).
+You have to use the user name and password as entered during the registration process on [[Res1]](#res1).
 Alien4Cloud cannot be used without login.
 Once you logged in successfully, you can access different parts of the web platform.
 We use rights associated with each user, therefore it may be possible that you can't perform some actions (e.g. add new TOSCA custom types in the catalog).
@@ -379,5 +380,24 @@ Thanks for help go to:
 
 ## Resources
 
-<a name="{1}>{1} - IAM authentication portal: https://iam.deep-hybrid-datacloud.eu</a>
-<a name="{2}>{2} - Alien4Cloud Official Documentation: https://alien4cloud.github.io/</a>
+#### [Res1] 
+IAM authentication portal: https://iam.deep-hybrid-datacloud.eu
+
+#### [Res2]
+Alien4Cloud Official Documentation: https://alien4cloud.github.io/
+
+#### [Res3]
+Alien4Cloud supported platforms: https://alien4cloud.github.io/#/documentation/2.0.0/admin_guide/supported_platforms.html
+
+#### [Res4]
+Alien4Cloud REST API: http://alien4cloud.github.io/#/documentation/2.0.0/rest/overview.html
+
+#### [Res5]
+Deep Docker container on DockerHub: https://hub.docker.com/r/indigodatacloud/alien4cloud-deep/
+
+#### [Res6]
+Google Java style on Github: https://github.com/google/google-java-format
+
+#### [Res7]
+Oficial checkstyle repository: https://github.com/checkstyle/checkstyle
+
