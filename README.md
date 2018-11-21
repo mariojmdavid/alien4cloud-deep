@@ -402,5 +402,3 @@ Google Java style on Github: https://github.com/google/google-java-format
 #### [Res7]
 Oficial checkstyle repository: https://github.com/checkstyle/checkstyle
 
-
-

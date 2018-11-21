@@ -1,4 +1,4 @@
-package es.upv.indigodc.service.model;
+package es.upv.indigodc.service.model.response;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;

@@ -34,10 +34,10 @@ ENV A4C_PEM_CERT_FILE=ca.pem
 ENV A4C_PEM_KEY_FILE=ca-key.pem
 ENV A4C_CERTS_ROOT_PATH=/certs
 
-ADD indigodc-orchestrator-plugin "${a4c_install_path}/indigodc-orchestrator-plugin"
+ADD orchestrator-plugin "${a4c_install_path}/deep-orchestrator-plugin"
 ADD a4c "${a4c_install_path}/${a4c_src_dir}"
 ADD indigodc-2-a4c.py "${a4c_install_path}"
-ADD alien4cloud-settings-manager "${a4c_install_path}/alien4cloud-settings-manager/"
+ADD settings-manager "${a4c_install_path}/settings-manager/"
   
 RUN \
   # Install those dependencies that will be removed afterwards  
@@ -72,13 +72,13 @@ RUN \
   && zip -9 -r --exclude=custom* "${a4c_install_path}/${a4c_install_dir}/init/archives/indigo-dc-tosca-types.zip" *.* artifacts/ images/ \
   && rm -R "${a4c_install_path}/indigo-dc-tosca-types" \
   # Compile and install the plugin
-  && cd "${a4c_install_path}/indigodc-orchestrator-plugin" \
+  && cd "${a4c_install_path}/deep-orchestrator-plugin" \
   && mvn -e clean package \
-  && cp ${a4c_install_path}/indigodc-orchestrator-plugin/target/alien4cloud-indigodc-provider-*.zip "${a4c_install_path}/${a4c_install_dir}/init/plugins/" \
+  && cp ${a4c_install_path}/deep-orchestrator-plugin/target/deep-orchestrator-plugin-*.zip "${a4c_install_path}/${a4c_install_dir}/init/plugins/" \
   # Compile and install the a4c settings manager
-  && cd "${a4c_install_path}/alien4cloud-settings-manager/" \
+  && cd "${a4c_install_path}/settings-manager/" \
   && mvn clean package \
-  && mv "${a4c_install_path}/alien4cloud-settings-manager/target/alien4cloud-settings-manager-${A4C_SETTINGS_MANAGER_VER}-jar-with-dependencies.jar" "${a4c_install_path}/${a4c_install_dir}/"\
+  && mv "${a4c_install_path}/settings-manager/target/settings-manager-${A4C_SETTINGS_MANAGER_VER}-jar-with-dependencies.jar" "${a4c_install_path}/${a4c_install_dir}/"\
   # Create a special user with limited access
   && addgroup -g ${user_gid} -S ${a4c_user} \
   && adduser -D -g "" -u ${user_uid} -G ${a4c_user} ${a4c_user} \
@@ -87,8 +87,8 @@ RUN \
   # Clean up the installed packages, files, everything
   && npm list -g --depth=0. | awk -F ' ' '{print $2}' | awk -F '@' '{print $1}'  | xargs npm remove -g\
   && rm -rf "${a4c_install_path}/alien4cloud-dist-${a4c_ver}-dist.tar.gz" \
-    "${a4c_install_path}/${a4c_src_dir}" ${a4c_install_path}/indigodc-orchestrator-plugin\
-    "${a4c_install_path}/alien4cloud-settings-manager/"\
+    "${a4c_install_path}/${a4c_src_dir}" ${a4c_install_path}/deep-orchestrator-plugin\
+    "${a4c_install_path}/settings-manager/"\
     /usr/lib/ruby \
     "${a4c_install_path}/indigodc-2-a4c.py" \
   && rm -rf $HOME/..?* $HOME/.[!.]* $HOME/*\
@@ -103,7 +103,7 @@ ENTRYPOINT \
   # Start a4c as non-root user
   cd "${A4C_INSTALL_PATH}/${A4C_INSTALL_DIR}" \
   # But first generate the settings and the environment for secure connection
-  && java -jar "alien4cloud-settings-manager-${A4C_SETTINGS_MANAGER_VER}-jar-with-dependencies.jar"\
+  && java -jar "settings-manager-${A4C_SETTINGS_MANAGER_VER}-jar-with-dependencies.jar"\
   # And flush the buffers to avoid /usr/bin/env: bad interpreter: Text file busy
   && sync \
   && su ${A4C_USER} -s /bin/bash -c '"${A4C_INSTALL_PATH}/${A4C_INSTALL_DIR}/alien4cloud.sh"'

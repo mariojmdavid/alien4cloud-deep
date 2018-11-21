@@ -24,7 +24,7 @@ import es.upv.indigodc.configuration.CloudConfiguration;
 import es.upv.indigodc.service.BuilderService.Deployment;
 import es.upv.indigodc.service.OrchestratorConnector.AccessToken;
 import es.upv.indigodc.service.model.OrchestratorIamException;
-import es.upv.indigodc.service.model.OrchestratorResponse;
+import es.upv.indigodc.service.model.response.OrchestratorResponse;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;

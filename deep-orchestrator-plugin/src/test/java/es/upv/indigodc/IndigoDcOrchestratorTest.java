@@ -44,8 +44,8 @@ import es.upv.indigodc.service.MappingService;
 import es.upv.indigodc.service.OrchestratorConnector;
 import es.upv.indigodc.service.UserService;
 import es.upv.indigodc.service.model.OrchestratorIamException;
-import es.upv.indigodc.service.model.OrchestratorResponse;
 import es.upv.indigodc.service.model.StatusNotFoundException;
+import es.upv.indigodc.service.model.response.OrchestratorResponse;
 
 public class IndigoDcOrchestratorTest {
 	
