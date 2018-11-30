@@ -88,6 +88,7 @@ pipeline {
           when {
                 anyOf {
                     branch 'master'
+                    branch 'jenkins_integration_testing'
                     buildingTag()
                 }
             }
