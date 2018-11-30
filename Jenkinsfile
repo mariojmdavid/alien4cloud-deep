@@ -112,6 +112,9 @@ pipeline {
         }
 
         stage('Functional testing') {
+            agent {
+                label 'docker-build'
+            }
             steps {
                 dir("integration_testing") {
                   sh 'npm install puppeteer commander'
