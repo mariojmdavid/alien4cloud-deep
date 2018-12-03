@@ -117,7 +117,6 @@ pipeline {
             }
             steps {
                 dir("integration_testing") {
-                  sh 'npm install puppeteer commander'
                   sh 'docker run -d --name ${docker_image_name} -p 8088:8088 ${dockerhub_image_id}'
                   sh 'while : ; do ; $c=`docker logs  --tail 2 alien4cloud-deep | grep -E "Started.*Bootstrap.*in"` ; if [[ ! -z ${c} ]] ; then ; break ; fi ; done ;'
                   sh 'nodejs ui_a4c.js -h \'http://localhost:8088\' -u admin -p admin -t ./AutomatedApp.yml'
