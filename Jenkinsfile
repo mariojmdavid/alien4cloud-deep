@@ -98,7 +98,8 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    env.dockerhub_image_id = DockerBuild(dockerhub_repo, env.BRANCH_NAME)
+                    dockerhub_image_id = DockerBuild(dockerhub_repo, env.BRANCH_NAME)
+                    env.dockerhub_image_id = dockerhub_image_id
                 }
             }
             post {
