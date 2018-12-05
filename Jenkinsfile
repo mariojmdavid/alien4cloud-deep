@@ -11,6 +11,7 @@ pipeline {
         dockerhub_repo = "indigodatacloud/alien4cloud-deep"
         dockerhub_image_id = ''
         docker_image_name = "automated_testing_alien4cloud-deep"
+        mockorchestrator_port = 10443
     }
 
     stages {
@@ -106,9 +107,9 @@ pipeline {
                 failure {
                     DockerClean()
                 }
-                always {
-                    cleanWs()
-                }
+//                always {
+//                    cleanWs()
+//                }
             }
         }
 
@@ -116,17 +117,23 @@ pipeline {
             agent {
                 label 'docker-build'
             }
-            steps {
+            steps {                
+                dir("integration_testing/mockorchestrator") {
+                  sh 'mvn clean install'
+                }
                 dir("integration_testing") {
+                  sh 'nohup java -jar mockorchestrator/target/mockorchestrator.war --server.port=${mockorchestrator_port} &'                  
+                  sh 'while true; do c=`curl --silent -X GET -k https://localhost:${mockorchestrator_port}/ping`; echo "Waiting for mock orchestrator"; if [[ "OK" = ${c} ]] ; then echo "Mock orchestrator started"; break; fi; sleep 2; done'
                   sh 'docker run -d --name ${docker_image_name} -p 8088:8088 ${env.dockerhub_image_id}'
-                  sh 'while : ; do ; $c=`docker logs  --tail 2 alien4cloud-deep | grep -E "Started.*Bootstrap.*in"` ; if [[ ! -z ${c} ]] ; then ; break ; fi ; done ;'
-                  sh 'nodejs ui_a4c.js -h \'http://localhost:8088\' -u admin -p admin -t ./AutomatedApp.yml'
+                  sh 'while true; do c=`docker logs alien4cloud-deep | grep -E "Started.*Bootstrap.*in"` ; if [[ ! -z ${c} ]] ; then echo "Alien4cloud started"; break; fi; sleep 2; done'
+                  sh 'nodejs ui_a4c.js -h \'http://localhost:8088\' -u admin -p admin -t ./AutomatedApp.yml -s http://localhost:${mockorchestrator_port}'
                 }
             }
             post {
                 always {
                   sh 'docker kill ${docker_image_name}'
                   sh 'docker rm ${docker_image_name}'
+                  cleanWs()
                 }
 
             }
