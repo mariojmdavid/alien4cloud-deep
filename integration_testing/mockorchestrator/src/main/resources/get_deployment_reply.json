@@ -1,0 +1,36 @@
+{
+  "links" : [ {
+    "rel" : "self",
+    "href" : "http://localhost:8080/deployments?createdBy=5cf584eb-23d4-46af-92e2-27ce766f02cb@https://iam-test.indigo-datacloud.eu/"
+  } ],
+  "content" : [ {
+    "uuid" : "uuid",
+    "creationTime" : "2018-11-13T00:27+0000",
+    "updateTime" : "2018-11-13T00:27+0000",
+    "status" : "CREATE_IN_PROGRESS",
+    "statusReason" : "Some reason",
+    "outputs" : { },
+    "task" : "NONE",
+    "callback" : "http://localhost",
+    "createdBy" : {
+      "issuer" : "https://iam-test.indigo-datacloud.eu/",
+      "subject" : "5cf584eb-23d4-46af-92e2-27ce766f02cb"
+    },
+    "links" : [ {
+      "rel" : "self",
+      "href" : "http://localhost:8080/deployments/c1726fd1-ee97-467e-b6e4-dd8aaeec808c"
+    }, {
+      "rel" : "resources",
+      "href" : "http://localhost:8080/deployments/c1726fd1-ee97-467e-b6e4-dd8aaeec808c/resources"
+    }, {
+      "rel" : "template",
+      "href" : "http://localhost:8080/deployments/c1726fd1-ee97-467e-b6e4-dd8aaeec808c/template"
+    } ]
+  } ],
+  "page" : {
+    "size" : 10,
+    "totalElements" : 2,
+    "totalPages" : 1,
+    "number" : 0
+  }
+}

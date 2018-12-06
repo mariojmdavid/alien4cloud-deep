@@ -1,0 +1,19 @@
+{
+  "uuid" : "uuid",
+  "creationTime" : "2018-11-13T00:27+0000",
+  "updateTime" : "2018-11-13T00:27+0000",
+  "status" : "CREATE_IN_PROGRESS",
+  "outputs" : { },
+  "task" : "NONE",
+  "callback" : "http://localhost:8080/callback",
+  "links" : [ {
+    "rel" : "self",
+    "href" : "http://localhost:8080/deployments/2302dbb9-8b6f-49a6-aa4f-47fd5b96ade7"
+  }, {
+    "rel" : "resources",
+    "href" : "http://localhost:8080/deployments/2302dbb9-8b6f-49a6-aa4f-47fd5b96ade7/resources"
+  }, {
+    "rel" : "template",
+    "href" : "http://localhost:8080/deployments/2302dbb9-8b6f-49a6-aa4f-47fd5b96ade7/template"
+  } ]
+}

@@ -1,0 +1,8 @@
+{
+"access_token":"access_token",
+"token_type":"Bearer",
+"refresh_token":"refresh_token",
+"expires_in":3599,
+"scope":"email openid offline_access profile",
+"id_token":"id_token"
+}

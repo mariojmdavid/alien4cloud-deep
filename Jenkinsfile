@@ -2,14 +2,15 @@
 
 @Library(['github.com/indigo-dc/jenkins-pipeline-library']) _
 
+def dockerhub_image_id = ''
+
 pipeline {
     agent {
        label 'java-a4c'
     }
     
     environment {
-        dockerhub_repo = "indigodatacloud/alien4cloud-deep"
-        dockerhub_image_id = ''
+        dockerhub_repo = "indigodatacloud/alien4cloud-deep"        
         docker_image_name = "automated_testing_alien4cloud-deep"
         mockorchestrator_port = 10443
     }
@@ -100,7 +101,7 @@ pipeline {
                 checkout scm
                 script {
                     dockerhub_image_id = DockerBuild(dockerhub_repo, env.BRANCH_NAME)
-                    env.dockerhub_image_id = dockerhub_image_id
+                    sh "echo 'docker image ID is ${dockerhub_image_id}'"
                 }
             }
             post {
@@ -124,15 +125,16 @@ pipeline {
                 dir("integration_testing") {
                   sh 'nohup java -jar mockorchestrator/target/mockorchestrator.war --server.port=${mockorchestrator_port} &'                  
                   sh 'while true; do c=`curl --silent -X GET -k https://localhost:${mockorchestrator_port}/ping`; echo "Waiting for mock orchestrator"; if [[ "OK" = ${c} ]] ; then echo "Mock orchestrator started"; break; fi; sleep 2; done'
-                  sh 'docker run -d --name ${docker_image_name} -p 8088:8088 ${env.dockerhub_image_id}'
-                  sh 'while true; do c=`docker logs alien4cloud-deep | grep -E "Started.*Bootstrap.*in"` ; if [[ ! -z ${c} ]] ; then echo "Alien4cloud started"; break; fi; sleep 2; done'
+                  sh "docker run -d --name ${docker_image_name} -p 8088:8088 ${dockerhub_image_id}"
+                  sh 'while true; do c=`docker logs ${docker_image_name} | grep -E "Started.*Bootstrap.*in"` ; if [[ ! -z ${c} ]] ; then echo "Alien4cloud started"; break; fi; sleep 2; done'
                   sh 'nodejs ui_a4c.js -h \'http://localhost:8088\' -u admin -p admin -t ./AutomatedApp.yml -s http://localhost:${mockorchestrator_port}'
+                  sh 'curl --silent -X POST -k https://localhost:${mockorchestrator_port}/actuator/shutdown'
                 }
             }
             post {
                 always {
-                  sh 'docker kill ${docker_image_name}'
-                  sh 'docker rm ${docker_image_name}'
+                  sh "docker kill ${docker_image_name}"
+                  sh "docker rm ${docker_image_name}"
                   cleanWs()
                 }
 
