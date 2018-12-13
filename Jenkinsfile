@@ -123,9 +123,10 @@ pipeline {
                   sh 'mvn clean install'
                 }
                 dir("integration_testing") {
+                  sh 'curl --silent -X POST -k https://localhost:${mockorchestrator_port}/actuator/shutdown'
                   sh 'nohup java -jar mockorchestrator/target/mockorchestrator.war --server.port=${mockorchestrator_port} &'                  
                   sh 'while true; do c=`curl --silent -X GET -k https://localhost:${mockorchestrator_port}/ping`; echo "Waiting for mock orchestrator"; if [[ "OK" = ${c} ]] ; then echo "Mock orchestrator started"; break; fi; sleep 2; done'
-                  sh "docker run -d --name ${docker_image_name} -p 8088:8088 ${dockerhub_image_id}"
+                  sh "docker run -d --network="host" --name ${docker_image_name} -p 8088:8088 ${dockerhub_image_id}"
                   sh 'while true; do c=`docker logs ${docker_image_name} | grep -E "Started.*Bootstrap.*in"` ; if [[ ! -z ${c} ]] ; then echo "Alien4cloud started"; break; fi; sleep 2; done'
                   sh 'nodejs ui_a4c.js -h \'http://localhost:8088\' -u admin -p admin -t ./AutomatedApp.yml -s http://localhost:${mockorchestrator_port}'
                   sh 'curl --silent -X POST -k https://localhost:${mockorchestrator_port}/actuator/shutdown'

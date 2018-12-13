@@ -364,7 +364,7 @@ public class OrchestratorConnector {
   private SSLContext getSslContext(CloudConfiguration cloudConfiguration) {
 
     SslContextBuilder sslContextBuilder = new SslContextBuilder();
-    sslContextBuilder.addCertificate(cloudConfiguration.getIamHostCert());
+    //sslContextBuilder.addCertificate(cloudConfiguration.getIamHostCert());
     sslContextBuilder.addCertificate(cloudConfiguration.getOrchestratorEndpointCert());
     sslContextBuilder.addCertificate(cloudConfiguration.getTokenEndpointCert());
     return sslContextBuilder.build();

@@ -36,10 +36,10 @@ public class CloudConfiguration {
   private String orchestratorEndpoint;
   @NotNull
   private String orchestratorEndpointCert;
-  @NotNull
-  private String iamHost;
-  @NotNull
-  private String iamHostCert;
+//  @NotNull
+//  private String iamHost;
+//  @NotNull
+//  private String iamHostCert;
   private int orchestratorPollInterval;
   @NotNull
   private String importIndigoCustomTypes;

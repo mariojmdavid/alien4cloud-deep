@@ -8,6 +8,9 @@ program
   .option('-u, --adminuser <adminuser>', 'The user name of the admin user')
   .option('-p, --adminpassw <adminpassw>', 'The password of the admin user')
   .option('-t, --apptopo <apptopo>', 'The file containing the YAML automated testing application topology')
+  .option('-k, --tokenendpointmock <tokenendpointmock>', 'The testing enpoint with the mock orchestrator/authentication server that returns a token')
+  .option('-o, --orchestratorendpointmock <orchestratorendpointmock>', 'The testing enpoint with the mock orchestrator/authentication server that answers various deployment calls')
+  .option('-c, --certificatepathmock <certificatepathmock>', 'The file which contains the certificate of the mock orchestrator/authentication server')
   .parse(process.argv);
 
 var pageH = 1080;
@@ -17,6 +20,7 @@ var orchestratorLocationInstanceName = "AutomatedOrchestratorLocationName";
 var infrastructureType = "Deep Orchestrator";
 var appName = "AutomatedApp";
 var appTopo = fs.readFileSync(program.apptopo, 'utf8');
+var certificateMock = fs.readFileSync(program.certificatepathmock, 'utf8');
 
 async function getProperty(element, property) {
     return await (await element.getProperty(property)).jsonValue();
@@ -83,14 +87,62 @@ async function doEnableOrchestratorInstance(page, orchestratorInstanceName, orch
     }
 }
 
+async function doSetParameters(page, tokenendpointmock, orchestratorendpointmock, certificatemock) {
+  // There might be two toasts that won't disappear and would block the clicking
+  await page.click("div[id='toast-container']").catch(e => e);
+  await page.click("div[id='toast-container']").catch(e => e);
+  await page.waitForSelector("i.fa.fa-wrench.fa-2x");
+  await page.click("i.fa.fa-wrench.fa-2x");
+  await page.waitForSelector("a[id='orchestrator-configuration-unlock-btn']");
+  await page.click("a[id='orchestrator-configuration-unlock-btn']");
+  await page.waitForSelector("button.btn-block.btn.btn-success.ng-binding[ng-click='confirm();$event.stopPropagation();']");
+  await page.click("button.btn-block.btn.btn-success.ng-binding[ng-click='confirm();$event.stopPropagation();']");
+  await page.waitForSelector("button.btn.btn-primary.ng-binding[ng-click='saveAction(rootObject)']");
+
+  await setDriverConfField(page, "tokenEndpoint", tokenendpointmock);
+  await setDriverConfField(page, "tokenEndpointCert", certificatemock, {delay: 0});
+  await setDriverConfField(page, "orchestratorEndpoint", orchestratorendpointmock);
+  await setDriverConfField(page, "orchestratorEndpointCert", certificatemock, {delay: 0});
+  await setDriverConfField(page, "iamHost", orchestratorendpointmock);
+  await setDriverConfField(page, "iamHostCert", certificatemock, {delay: 0});
+
+  await page.click("button.btn.btn-primary.ng-binding[ng-click='saveAction(rootObject)']");
+  await page.waitForSelector("div[id='toast-container']");
+  await page.click("div[id='toast-container']").catch(e => e);
+
+
+}
+
+async function setDriverConfField(page, fieldName, val) {
+  let tokenEnpointElSel = "//label[@uib-tooltip='" + fieldName + "']/following-sibling::div/div/span";
+  let tokenEnpointEl = (await page.$x(tokenEnpointElSel))[0];
+  await tokenEnpointEl.click();
+  let inputElSel = "input.editable-input.form-control.input-sm";
+  await page.waitForSelector(inputElSel);
+  await clearFocusedInput(page);
+  await page.type(inputElSel, val);
+}
+
+async function clearFocusedInput(page) {
+  // Move the carriage to the right
+  await page.keyboard.down('Control');
+  await page.keyboard.press('A');
+  await page.keyboard.up('Control');
+
+  await page.keyboard.press('Backspace');
+}
+
 async function doCreateApp(page, orchestratorInstanceName, appName, pageW, pageH, appTopo) {
     //await page.sleep(5000);
     const menuApp = await page.waitForSelector("a[id='menu.applications']");
     await menuApp.click();
     const btnNewApp = await page.waitForSelector("button[id='app-new-btn']");
 
-    let nameEl = (await page.$x('//div[contains(string(), "' + appName + '")]'))[0];
-    if (nameEl === undefined) {
+    await page.waitFor(2000);
+    //let nameEl = (await page.$x('//div[contains(string(), "' + appName + '")]/parent::div'))[0];
+    let nameEl = await page.$('div[id="app_' + appName + '"]');
+    //console.log(nameEl);
+    if (nameEl === undefined || nameEl === null) {
       await btnNewApp.click();
       const inpName = await page.waitForSelector("input[id='nameid']");
       await inpName.type(appName);
@@ -102,9 +154,14 @@ async function doCreateApp(page, orchestratorInstanceName, appName, pageW, pageH
     await page.waitFor(1000);
     //await page.waitForFunction("document.querySelector('div.text-muted > table.table-condensed.grp-margin').textContent.includes('Environment')");
     let envSelXpath = "//td[contains(text(), 'Environment')]";
+    await page.waitForXPath(envSelXpath);
     let td = (await page.$x(envSelXpath))[0];
     let tr = (await td.$x( '..' ))[0];
     await tr.click();
+
+    let aTopoEl = await page.waitForSelector("a[id=\"applications.detail.environment.deploynext.topology\"]");
+    await aTopoEl.click();
+
     let btnEditTopo = await page.waitForSelector("button[id=\"edit-topo-btn\"]");
     await btnEditTopo.click();
     let searchNodeEl = await page.waitForSelector("input[id=\"search-query\"]");
@@ -192,6 +249,7 @@ async function doCreateApp(page, orchestratorInstanceName, appName, pageW, pageH
     // await saveBtnEl.click();
     let envLinkEl = (await page.$x('//a[contains(text(), "Environment")]'))[0];
     await envLinkEl.click();
+    await page.waitFor(1000);
     await page.waitForSelector("button.btn-primary[ng-click=\"save()\"]");
     let saveBtnDlgEl = (await page.$x('//button[contains(@class, "btn-primary") and contains(text(), "Save")]'))[0];
     saveBtnDlgEl.click();
@@ -201,7 +259,7 @@ async function doCreateApp(page, orchestratorInstanceName, appName, pageW, pageH
     await btnEditTopo.click();
     envLinkEl = (await page.$x('//a[contains(text(), "Environment")]'))[0];
     await envLinkEl.click();
-    console.log(orchestratorInstanceName);
+    //console.log(orchestratorInstanceName);
     let orchestratorBtnEl = await page.waitForSelector("span.location-match.clickable-media");//(await page.waitForXPath('//span/b[contains(@class, "ng-binding") and contains(text(), "' + orchestratorInstanceName + '")]'))[0];
     await orchestratorBtnEl.click();
 
@@ -210,15 +268,19 @@ async function doCreateApp(page, orchestratorInstanceName, appName, pageW, pageH
     await page.click("div[id='toast-container']").catch(e => e);
 
     let linkReviewDeployEl = await page.waitForSelector("a[id=\"applications.detail.environment.deploynext.deploy\"]");
-    linkReviewDeployEl.click();
-    let btnDeployEl = await page.waitForSelector("button[id=\"btn-deploy\"]");
-    btnDeployEl.click();
+    await linkReviewDeployEl.click();
+    await page.waitForSelector("button[id='btn-deploy']");
+    await page.click("button[id='btn-deploy']");
     //await page.waitForXPath("a[contains(@class, \"btn-danger\") and contains(string(), \"Undeploy\")]");
     let linkUndeployEl = await page.waitForSelector("a.btn.btn-danger.ng-binding.ng-scope.disabled");
-    await page.reload();
+    //await page.reload();
 }
 
-puppeteer.launch({headless: true, dumpio: true}).then(async browser => {
+puppeteer.launch({headless: false, dumpio: true,
+    slowMo: 0,
+    args: [
+            `--window-size=1200,1000`
+        ]}).then(async browser => {
   const page = await browser.newPage();
   page.on('console', consoleObj => console.log(consoleObj.text()));
   await page.setViewport({ width: pageW, height: pageH })
@@ -228,7 +290,8 @@ puppeteer.launch({headless: true, dumpio: true}).then(async browser => {
   await doLogin(page, program.adminuser, program.adminpassw);
   await doCreateOrchestratorInstance(page, orchestratorInstanceName);
   await doEnableOrchestratorInstance(page, orchestratorInstanceName, orchestratorLocationInstanceName, infrastructureType);
+  await doSetParameters(page, program.tokenendpointmock, program.orchestratorendpointmock, certificateMock);
   await doCreateApp(page, orchestratorInstanceName, appName, pageW, pageH, appTopo);
 
-	await browser.close();
+	//await browser.close();
 });

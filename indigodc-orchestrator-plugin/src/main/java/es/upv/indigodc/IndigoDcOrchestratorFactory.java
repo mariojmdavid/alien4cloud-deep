@@ -66,7 +66,6 @@ public class IndigoDcOrchestratorFactory
       conf = new CloudConfiguration(NO_DEFAULT_CONF_FILE,
           NO_DEFAULT_CONF_FILE, NO_DEFAULT_CONF_FILE,
           NO_DEFAULT_CONF_FILE, NO_DEFAULT_CONF_FILE, 
-          NO_DEFAULT_CONF_FILE, NO_DEFAULT_CONF_FILE,
           NO_DEFAULT_CONF_FILE, NO_DEFAULT_CONF_FILE, NO_DEFAULT_CONF_FILE_POLL,
           NO_DEFAULT_CONF_FILE);
     }
