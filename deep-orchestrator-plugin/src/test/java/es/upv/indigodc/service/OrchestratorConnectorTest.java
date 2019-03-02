@@ -16,7 +16,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import es.upv.indigodc.IndigoDcOrchestratorFactory;
+import es.upv.indigodc.OrchestratorFactory;
 import es.upv.indigodc.TestBlockingServlet;
 import es.upv.indigodc.TestServer;
 import es.upv.indigodc.TestUtil;

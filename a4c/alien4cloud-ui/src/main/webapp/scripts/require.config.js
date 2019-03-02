@@ -30,6 +30,7 @@ require.config({
     'angular-ui-router': 'bower_components/angular-ui-router/release/angular-ui-router.min',
     'angular-translate-base': 'bower_components/angular-translate/angular-translate.min',
     'angular-translate': 'bower_components/angular-translate-loader-static-files/angular-translate-loader-static-files.min',
+    'angular-translate-storage-cookie' : 'bower_components/angular-translate-storage-cookie/angular-translate-storage-cookie.min',
     'angular-animate': 'bower_components/angular-animate/angular-animate.min',
     'angular-xeditable': 'bower_components/angular-xeditable/dist/js/xeditable.min',
     'angular-ui-select': 'bower_components/angular-ui-select/dist/select.min',
@@ -51,6 +52,7 @@ require.config({
     'dagre': 'bower_components/dagre/dist/dagre.core.min',
     'graphlib': 'bower_components/graphlib/dist/graphlib.core.min',
     'js-yaml': 'bower_components/js-yaml/js-yaml.min',
+    'clipboard' : 'bower_components/clipboard/dist/clipboard.min',
   },
   shim: {
     'angular': {
@@ -64,7 +66,8 @@ require.config({
     'angular-sanitize': { deps: ['angular'] },
     'angular-ui-router': { deps: ['angular'] },
     'angular-translate-base': { deps: ['angular'] },
-    'angular-translate': { deps: ['angular-translate-base'] },
+    'angular-translate-storage-cookie' : { deps: ['angular'] },
+    'angular-translate': { deps: ['angular-translate-base' , 'angular-translate-storage-cookie'] },
     'angular-hotkeys': { deps: ['angular'] },
     'autofill-event': { deps: ['angular'] },
     'angular-all': { deps: ['angular-cookies', 'angular-translate', 'angular-ui-router', 'angular-sanitize', 'angular-resource', 'angular-bootstrap', 'angular-bootstrap-datetimepicker', 'angular-cookies'] },
@@ -79,7 +82,11 @@ require.config({
     'stomp':  { deps: ['sockjs'] },
     'graphlib': { deps: ['lodash-base'] },
     'dagre': { deps: ['graphlib'] },
-    'd3-pie': { deps: ['d3'] }
+    'd3-pie': { deps: ['d3'] },
+    'clipboard': {
+      exports: 'ClipboardJS',
+      deps: ['jquery']
+    },
   },
   onNodeCreated: function(node, config, moduleName, url) {
     'use strict';

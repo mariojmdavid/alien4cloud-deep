@@ -17,6 +17,20 @@
             confirm-handler="doUndeploy()"
             ng-click="$event.stopPropagation();">{{'APPLICATIONS.UNDEPLOY' | translate}}
     </a>
+
+    <div class="col-md-12 upload-infos-bloc" ng-if="wfProgressData">
+      <div uib-alert ng-class="'alert-' + getExecutionStatusCss(wfProgressData.status)" class="clickable" style="margin-top: 15px;" ng-click="displayWorkflows()">
+        <div class="col-md-2 upload-file-infos">
+          <span><strong>{{wfProgressData.workflowName}}</strong></span>
+        </div>
+        <uib-progressbar class="{{(wfProgressData.status == 'RUNNING') ? 'progress-striped' : ''}} active"
+                         value="wfProgressData.progress"
+                         type="{{getExecutionStatusCss(wfProgressData.status)}}">
+          <span ng-if="wfProgressData.status != 'RUNNING'">{{'ENTITY.EXECUTION.STATUS.VALUES.' + wfProgressData.status | translate}}</span>
+          <span ng-if="wfProgressData.status == 'RUNNING' && wfProgressData.current">{{wfProgressData.current.nodeId}} ({{wfProgressData.current.instanceId}}) {{wfProgressData.current.operationName}}</span>
+        </uib-progressbar>
+      </div>
+    </div>
     <div class="col-md-12">
       <div class="content-head" ng-click="isOrchestratorDeploymentPropertiesCollapsed = !isOrchestratorDeploymentPropertiesCollapsed">
         <i class="fa fa-cog"></i> Reminder of current deployment
@@ -73,6 +87,26 @@
                 </div>
                 <div class="col-md-8">{{ deployedTime | amDurationFormat : 'millisecond' || 'loading' }}</div>
             </div>
+        </div>
+    </div>
+
+    <div class="col-md-12" style="margin-top: 20px;">
+        <div class="content-head">
+            <i class="fa fa-power-off"></i> {{'APPLICATIONS.WF.title' | translate}}
+        </div>
+    </div>
+    <div ng-controller="ApplicationEnvDeployCurrentWorkflowCtrl">
+        <div class="col-md-7">
+            <select name="wf-select" id="wf-select" ng-model="currentWorkflowName" ng-change="workflows.setCurrentWorkflowName(currentWorkflowName)">
+                <option ng-repeat="w in topology.topology.workflows" value="{{w.name}}" ng-selected="w.name === currentWorkflowName">{{w.name}}</option>
+            </select>
+        </div>
+        <div class="col-md-5">
+            <button id="btn-deploy" type="button" class="btn btn-success application-deploy-button"
+                    ng-click="launchWorkflow()"
+                    ng-disabled="isLaunchingWorkflow" >
+                <i class="fa" ng-class="{'fa-play': !isLaunchingWorkflow, 'fa-spinner fa-spin': isLaunchingWorkflow}"></i> {{'APPLICATIONS.WF.launch' | translate}}
+            </button>
         </div>
     </div>
 </div>

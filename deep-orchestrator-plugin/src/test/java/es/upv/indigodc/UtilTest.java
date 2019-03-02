@@ -10,7 +10,7 @@ public class UtilTest {
 	
 	@Test
 	public void checkAllSupportedA4CDeploymentStatuses() throws StatusNotFoundException {
-		for (IndigoDcDeploymentStatus val:IndigoDcDeploymentStatus.values()) {
+		for (OrchestratorDeploymentStatuses val:OrchestratorDeploymentStatuses.values()) {
 			Util.indigoDcStatusToDeploymentStatus(val.name());
 			Util.indigoDcStatusToInstanceStatus(val.name());
 		}

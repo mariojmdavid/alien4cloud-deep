@@ -9,7 +9,12 @@ define(function (require) {
   require('scripts/_ref/applications/controllers/applications_detail_environment_deploycurrent_info');
   require('scripts/_ref/applications/controllers/applications_detail_environment_deploycurrent_runtimeeditor');
   require('scripts/_ref/applications/controllers/applications_detail_environment_deploycurrent_workflow');
-
+  require('scripts/_ref/applications/controllers/applications_detail_environment_deploycurrent_executions');
+  require('scripts/_ref/applications/controllers/applications_detail_environment_deploycurrent_tasks');
+  require('scripts/log/directives/log_search_panel');
+  require('scripts/log/directives/log_search_display');
+  require('scripts/log/controllers/log');
+  require('scripts/log/application_deployment_log_states');
   require('scripts/applications/services/application_event_services');
   require('scripts/applications/services/runtime_event_service');
   require('scripts/_ref/applications/services/secret_display_modal');
@@ -116,7 +121,7 @@ define(function (require) {
         loadTopologyRuntime();
 
         $scope.$on('a4cRuntimeEventReceived', function(angularEvent, event) {
-          if(event.rawType === 'paasmessagemonitorevent') {
+          if(event.rawType === 'paasmessagemonitorevent' || event.rawType === 'paasworkflowmonitorevent') {
             return;
           }
           // topology has changed

@@ -13,6 +13,8 @@ import java.util.UUID;
 import javax.annotation.Resource;
 import javax.inject.Inject;
 
+import alien4cloud.dao.model.FacetedSearchResult;
+import alien4cloud.model.application.Application;
 import org.alien4cloud.alm.events.ServiceDeletedEvent;
 import alien4cloud.orchestrators.locations.events.OnLocationResourceChangeEvent;
 import org.alien4cloud.alm.service.events.ServiceChangedEvent;
@@ -28,6 +30,7 @@ import org.alien4cloud.tosca.model.Csar;
 import org.alien4cloud.tosca.model.definitions.AbstractPropertyValue;
 import org.alien4cloud.tosca.model.definitions.CapabilityDefinition;
 import org.alien4cloud.tosca.model.templates.Capability;
+import org.alien4cloud.tosca.model.templates.NodeTemplate;
 import org.alien4cloud.tosca.model.types.CapabilityType;
 import org.alien4cloud.tosca.model.types.NodeType;
 import org.alien4cloud.tosca.model.types.RelationshipType;
@@ -81,6 +84,8 @@ public class ServiceResourceService {
         return create(serviceName, serviceVersion, serviceNodeType, serviceNodeVersion, null);
     }
 
+
+
     /**
      * Create a service.
      * 
@@ -133,13 +138,12 @@ public class ServiceResourceService {
      * @param count max mumber of elements to return.
      * @return The request result that contains service resources matching the search.
      */
-    public GetMultipleDataResult<ServiceResource> search(String searchText, Map<String, String[]> filters, String sortField, boolean desc, int from,
+    public FacetedSearchResult<ServiceResource> search(String searchText, Map<String, String[]> filters, String sortField, boolean desc, int from,
             int count) {
         if (sortField == null) {
             sortField = "name";
         }
-        return alienDAO.buildSearchQuery(ServiceResource.class, searchText).prepareSearch().setFilters(filters).setFieldSort(sortField, desc).search(from,
-                count);
+        return alienDAO.facetedSearch(ServiceResource.class, searchText, filters, null, "", from, count, sortField, desc);
     }
 
     /**
@@ -176,6 +180,28 @@ public class ServiceResourceService {
             throws ConstraintValueDoNotMatchPropertyTypeException, ConstraintViolationException {
         update(resourceId, name, version, description, nodeType, nodeTypeVersion, nodeProperties, nodeCapabilities, nodeAttributeValues, locations,
                 capabilitiesRelationshipTypes, requirementsRelationshipTypes, false);
+    }
+
+    // TODO: manage relationships in duplicate
+    public String duplicate(String serviceId) throws ConstraintValueDoNotMatchPropertyTypeException, ConstraintViolationException {
+        ServiceResource serviceResource = getOrFail(serviceId);
+        if (serviceResource.getEnvironmentId() != null) {
+            throw new UnsupportedOperationException("Alien managed services cannot be duplicated.");
+        }
+        // TODO: better naming deduplicate strategy
+        String serviceName = serviceResource.getName() + "_copy";
+        String serviceVersion = serviceResource.getVersion();
+        String description = serviceResource.getDescription();
+        String nodeType = serviceResource.getNodeInstance().getNodeTemplate().getType();
+        String nodeVersion = serviceResource.getNodeInstance().getTypeVersion();
+        String newServiceId = create(serviceName, serviceVersion, nodeType, nodeVersion);
+        Map<String, String> attributeValues = serviceResource.getNodeInstance().getAttributeValues();
+        attributeValues.put(ToscaNodeLifecycleConstants.ATT_STATE, ToscaNodeLifecycleConstants.INITIAL);
+
+        NodeTemplate nodeTemplate = serviceResource.getNodeInstance().getNodeTemplate();
+        update(newServiceId, serviceName, serviceVersion, description, nodeType, nodeVersion, nodeTemplate.getProperties(), nodeTemplate.getCapabilities(), attributeValues, serviceResource.getLocationIds(), null, null);
+
+        return newServiceId;
     }
 
     /**

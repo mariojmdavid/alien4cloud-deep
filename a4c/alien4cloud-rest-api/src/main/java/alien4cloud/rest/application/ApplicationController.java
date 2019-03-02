@@ -15,6 +15,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.AllArgsConstructor;
 import org.alien4cloud.tosca.catalog.index.ArchiveIndexer;
+import org.alien4cloud.tosca.model.templates.Topology;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.FilterBuilder;
@@ -94,8 +95,9 @@ public class ApplicationController {
 
         // check the topology template id to recover the related topology id
         String topologyId = request.getTopologyTemplateVersionId();
+        Topology template = null;
         if (topologyId != null) {
-            applicationVersionService.getTemplateTopology(topologyId);
+            template = applicationVersionService.getTemplateTopology(topologyId);
         }
 
         // check unity of archive name
@@ -110,7 +112,7 @@ public class ApplicationController {
         }
 
         // create the application with default environment and version
-        String applicationId = applicationService.create(auth.getName(), request.getArchiveName(), request.getName(), request.getDescription());
+        String applicationId = applicationService.create(auth.getName(), request.getArchiveName(), request.getName(), request.getDescription(), template);
         ApplicationVersion version = applicationVersionService.createInitialVersion(applicationId, topologyId);
         applicationEnvironmentService.createApplicationEnvironment(auth.getName(), applicationId, version.getTopologyVersions().keySet().iterator().next());
         return RestResponseBuilder.<String> builder().data(applicationId).build();
@@ -142,17 +144,13 @@ public class ApplicationController {
 
         // We want to sort applications by deployed/undeployed and then application name.
 
-        // Query all application ids and name.
-        QueryBuilder queryBuilder = alienDAO.buildSearchQuery(Application.class, searchRequest.getQuery())
-                .setFilters(searchRequest.getFilters(), authorizationFilter).queryBuilder();
-        SearchResponse response = alienDAO.getClient().prepareSearch(alienDAO.getIndexForType(Application.class)).setQuery(queryBuilder)
-                .setFetchSource(new String[] { "name" }, null).setSize(Integer.MAX_VALUE).get();
+        FacetedSearchResult<Application> facetedSearchResult = alienDAO.facetedSearch(Application.class, searchRequest.getQuery(), searchRequest.getFilters(), authorizationFilter, "", 0, Integer.MAX_VALUE);
 
         // Get their status (deployed vs undeployed)
         List<DeployedAppHolder> appHolders = Lists.newLinkedList();
-        for (SearchHit hit : response.getHits().getHits()) {
+        for (Application hit : facetedSearchResult.getData()) {
             String id = hit.getId();
-            String appName = (String) hit.getSource().get("name");
+            String appName = hit.getName();
             boolean isDeployed = alienDAO.buildQuery(Deployment.class).setFilters(fromKeyValueCouples("sourceId", id, "endDate", null)).count() > 0;
             appHolders.add(new DeployedAppHolder(id, appName, isDeployed));
         }
@@ -174,8 +172,8 @@ public class ApplicationController {
         }
 
         return RestResponseBuilder.<FacetedSearchResult> builder()
-                .data(new FacetedSearchResult<>(searchRequest.getFrom(), to, response.getTookInMillis(), appHolders.size(),
-                        new String[] { Application.class.getSimpleName() }, applications.toArray(new Application[applications.size()]), Maps.newHashMap()))
+                .data(new FacetedSearchResult<>(searchRequest.getFrom(), to, facetedSearchResult.getQueryDuration(), appHolders.size(),
+                        new String[] { Application.class.getSimpleName() }, applications.toArray(new Application[applications.size()]), facetedSearchResult.getFacets()))
                 .build();
     }
 

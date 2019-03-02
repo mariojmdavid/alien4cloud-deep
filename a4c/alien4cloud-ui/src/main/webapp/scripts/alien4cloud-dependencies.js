@@ -17,6 +17,7 @@ define(function (require) {
   require('angular-ui-router');
   require('angular-translate-base');
   require('angular-translate');
+  require('angular-translate-storage-cookie');
   require('angular-animate');
   require('angular-xeditable');
   require('angular-ui-select');
@@ -37,6 +38,7 @@ define(function (require) {
   require('d3-pie');
   require('dagre');
   require('graphlib');
+  require('clipboard');
 
   return function() {
     console.debug('Dependencies loaded');

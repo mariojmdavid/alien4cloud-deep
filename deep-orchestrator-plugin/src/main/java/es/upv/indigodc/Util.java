@@ -52,7 +52,7 @@ public class Util {
       throws StatusNotFoundException {
 
     try {
-      switch (IndigoDcDeploymentStatus.valueOf(status)) {
+      switch (OrchestratorDeploymentStatuses.valueOf(status)) {
         case UNKNOWN:
           return DeploymentStatus.UNKNOWN;
         case CREATE_COMPLETE:
@@ -92,37 +92,37 @@ public class Util {
   public static InstanceStatusInfo indigoDcStatusToInstanceStatus(final String status)
       throws StatusNotFoundException {
     try {
-      switch (IndigoDcDeploymentStatus.valueOf(status)) {
+      switch (OrchestratorDeploymentStatuses.valueOf(status)) {
         case UNKNOWN:
           return new InstanceStatusInfo(InstanceStatus.FAILURE,
-              IndigoDcDeploymentStatus.UNKNOWN.name());
+              OrchestratorDeploymentStatuses.UNKNOWN.name());
         case CREATE_COMPLETE:
           return new InstanceStatusInfo(InstanceStatus.SUCCESS,
-              IndigoDcDeploymentStatus.CREATE_COMPLETE.name());
+              OrchestratorDeploymentStatuses.CREATE_COMPLETE.name());
         case CREATE_FAILED:
           return new InstanceStatusInfo(InstanceStatus.FAILURE,
-              IndigoDcDeploymentStatus.CREATE_FAILED.name());
+              OrchestratorDeploymentStatuses.CREATE_FAILED.name());
         case CREATE_IN_PROGRESS:
           return new InstanceStatusInfo(InstanceStatus.PROCESSING,
-              IndigoDcDeploymentStatus.CREATE_IN_PROGRESS.name());
+              OrchestratorDeploymentStatuses.CREATE_IN_PROGRESS.name());
         case DELETE_COMPLETE:
           return new InstanceStatusInfo(InstanceStatus.SUCCESS,
-              IndigoDcDeploymentStatus.DELETE_COMPLETE.name());
+              OrchestratorDeploymentStatuses.DELETE_COMPLETE.name());
         case DELETE_FAILED:
           return new InstanceStatusInfo(InstanceStatus.FAILURE,
-              IndigoDcDeploymentStatus.DELETE_FAILED.name());
+              OrchestratorDeploymentStatuses.DELETE_FAILED.name());
         case DELETE_IN_PROGRESS:
           return new InstanceStatusInfo(InstanceStatus.PROCESSING,
-              IndigoDcDeploymentStatus.DELETE_IN_PROGRESS.name());
+              OrchestratorDeploymentStatuses.DELETE_IN_PROGRESS.name());
         case UPDATE_COMPLETE:
           return new InstanceStatusInfo(InstanceStatus.SUCCESS,
-              IndigoDcDeploymentStatus.UPDATE_COMPLETE.name());
+              OrchestratorDeploymentStatuses.UPDATE_COMPLETE.name());
         case UPDATE_FAILED:
           return new InstanceStatusInfo(InstanceStatus.FAILURE,
-              IndigoDcDeploymentStatus.UPDATE_FAILED.name());
+              OrchestratorDeploymentStatuses.UPDATE_FAILED.name());
         case UPDATE_IN_PROGRESS:
           return new InstanceStatusInfo(InstanceStatus.PROCESSING,
-              IndigoDcDeploymentStatus.UPDATE_IN_PROGRESS.name());
+              OrchestratorDeploymentStatuses.UPDATE_IN_PROGRESS.name());
         default:
           throw new StatusNotFoundException(status);
       }

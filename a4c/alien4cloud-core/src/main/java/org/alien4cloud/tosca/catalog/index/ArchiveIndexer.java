@@ -1,11 +1,17 @@
 package org.alien4cloud.tosca.catalog.index;
 
+import alien4cloud.common.MetaPropertiesService;
 import alien4cloud.component.repository.exception.CSARUsedInActiveDeployment;
 import alien4cloud.component.repository.exception.ToscaTypeAlreadyDefinedInOtherCSAR;
 import alien4cloud.dao.FilterUtil;
 import alien4cloud.dao.IGenericSearchDAO;
+import alien4cloud.dao.model.GetMultipleDataResult;
 import alien4cloud.deployment.DeploymentService;
 import alien4cloud.exception.AlreadyExistException;
+import alien4cloud.model.common.IMetaProperties;
+import alien4cloud.model.common.MetaPropConfiguration;
+import alien4cloud.model.common.MetaPropertyTarget;
+import alien4cloud.model.common.Tag;
 import alien4cloud.model.components.CSARSource;
 import alien4cloud.paas.wf.TopologyContext;
 import alien4cloud.paas.wf.WorkflowsBuilderService;
@@ -15,19 +21,29 @@ import alien4cloud.tosca.model.ArchiveRoot;
 import alien4cloud.tosca.parser.ParsingError;
 import alien4cloud.tosca.parser.ParsingErrorLevel;
 import alien4cloud.tosca.parser.impl.ErrorCode;
+import alien4cloud.utils.MapUtil;
 import alien4cloud.utils.VersionUtil;
+import alien4cloud.utils.services.ConstraintPropertyService;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.alien4cloud.tosca.catalog.events.AfterArchiveIndexed;
 import org.alien4cloud.tosca.catalog.events.BeforeArchiveIndexed;
 import org.alien4cloud.tosca.catalog.repository.ICsarRepositry;
 import org.alien4cloud.tosca.editor.services.TopologySubstitutionService;
+import org.alien4cloud.tosca.exceptions.ConstraintValueDoNotMatchPropertyTypeException;
+import org.alien4cloud.tosca.exceptions.ConstraintViolationException;
 import org.alien4cloud.tosca.exporter.ArchiveExportService;
 import org.alien4cloud.tosca.model.CSARDependency;
 import org.alien4cloud.tosca.model.Csar;
 import org.alien4cloud.tosca.model.templates.Topology;
 import org.alien4cloud.tosca.model.types.AbstractInheritableToscaType;
 import org.alien4cloud.tosca.model.types.AbstractToscaType;
+import org.alien4cloud.tosca.model.types.NodeType;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
@@ -36,9 +52,9 @@ import javax.inject.Inject;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+
+import static alien4cloud.utils.AlienUtils.safe;
 
 /**
  * <p>
@@ -55,6 +71,12 @@ import java.util.Objects;
 @Slf4j
 @Component
 public class ArchiveIndexer {
+
+    /**
+     * If this prefix is found in TOSCA metadata name, A4C will try to find and feed the corresponding meta-property for NodeType.
+     */
+    public static final String A4C_METAPROPERTY_PREFIX = "A4C_META_";
+
     @Resource(name = "alien-es-dao")
     private IGenericSearchDAO alienDAO;
     @Inject
@@ -79,6 +101,11 @@ public class ArchiveIndexer {
     private TopologySubstitutionService topologySubstitutionService;
     @Inject
     private IArchiveIndexerAuthorizationFilter archiveIndexerAuthorizationFilter;
+    @Inject
+    private MetaPropertiesService metaPropertiesService;
+
+    @Value("${features.archive_indexer_lock_used_archive:#{true}}")
+    private boolean lockUsedArchive;
 
     /**
      * Check that a CSAR name/version does not already exists in the repository and eventually throw an AlreadyExistException.
@@ -118,7 +145,6 @@ public class ArchiveIndexer {
 
         // Ensure that the archive does not already exists
         ensureUniqueness(csar.getName(), csar.getVersion());
-        workflowBuilderService.initWorkflows(workflowBuilderService.buildTopologyContext(topology, csar));
 
         // generate the initial yaml in a temporary directory
         if (csar.getYamlFilePath() == null) {
@@ -190,7 +216,9 @@ public class ArchiveIndexer {
         checkNotReleased(currentIndexedArchive);
         // In the current version of alien4cloud we must prevent from overriding an archive that is used in a deployment as we still use catalog information at
         // runtime.
-        checkNotUsedInActiveDeployment(currentIndexedArchive);
+        if (lockUsedArchive) {
+            checkNotUsedInActiveDeployment(currentIndexedArchive);
+        }
         // FIXME If the archive already exists but can be indexed we should actually call an editor operation to keep git tracking, or should we just prevent
         // that ?
 
@@ -212,8 +240,10 @@ public class ArchiveIndexer {
         // manage images before archive storage in the repository
         imageLoader.importImages(archivePath, archiveRoot, parsingErrors);
 
+        Map<String, MetaPropConfiguration> metapropsNames = metaPropertiesService.getMetaPropConfigurationsByName(MetaPropertyTarget.COMPONENT);
+
         // index the archive content in elastic-search
-        indexArchiveTypes(archiveName, archiveVersion, archiveRoot.getArchive().getWorkspace(), archiveRoot, currentIndexedArchive);
+        indexArchiveTypes(archiveName, archiveVersion, archiveRoot.getArchive().getWorkspace(), archiveRoot, currentIndexedArchive, metapropsNames);
         indexTopology(archiveRoot, parsingErrors, archiveName, archiveVersion);
 
         publisher.publishEvent(new AfterArchiveIndexed(this, archiveRoot));
@@ -254,13 +284,28 @@ public class ArchiveIndexer {
         }
     }
 
+    private void manageTopologyMetaproperties(Topology topology) {
+        Map<String, MetaPropConfiguration> metapropsNames = metaPropertiesService.getMetaPropConfigurationsByName(MetaPropertyTarget.TOPOLOGY);
+        feedA4CMetaproperties(topology, topology.getTags(), metapropsNames);
+    }
+
     private void indexTopology(final ArchiveRoot archiveRoot, List<ParsingError> parsingErrors, String archiveName, String archiveVersion) {
         Topology topology = archiveRoot.getTopology();
         if (topology == null || topology.isEmpty()) {
             return;
         }
 
-        topology.setTags(archiveRoot.getArchive().getTags());
+        // merge archive tags in topology tags
+        if (archiveRoot.getArchive().getTags() != null && !archiveRoot.getArchive().getTags().isEmpty()) {
+            if (topology.getTags() == null) {
+                topology.setTags(Lists.newArrayList());
+            }
+            topology.getTags().addAll(archiveRoot.getArchive().getTags());
+        }
+        manageTopologyMetaproperties(topology);
+        if (StringUtils.isEmpty(topology.getDescription()) && StringUtils.isNotEmpty(archiveRoot.getArchive().getDescription())) {
+            topology.setDescription(archiveRoot.getArchive().getDescription());
+        }
 
         if (archiveRoot.hasToscaTypes()) {
             // The archive contains types, we assume those types are used in the embedded topology so we add the dependency to this CSAR
@@ -315,30 +360,92 @@ public class ArchiveIndexer {
      * @param root The archive root.
      * @param archive The previous archive that must be replaced if any.
      */
-    private void indexArchiveTypes(String archiveName, String archiveVersion, String workspace, ArchiveRoot root, Csar archive) {
+    private void indexArchiveTypes(String archiveName, String archiveVersion, String workspace, ArchiveRoot root, Csar archive, Map<String, MetaPropConfiguration> metapropsNames) {
         if (archive != null) {
             // get element from the archive so we get the creation date.
             Map<String, AbstractToscaType> previousElements = indexerService.getArchiveElements(archiveName, archiveVersion);
-            prepareForUpdate(root, previousElements);
+            prepareForUpdate(root, previousElements, metapropsNames);
 
             // delete the all objects related to the previous archive .
             csarService.deleteCsarContent(archive);
         }
 
-        performIndexing(root);
+        performIndexing(root, metapropsNames);
     }
 
-    private void prepareForUpdate(ArchiveRoot root, Map<String, AbstractToscaType> previousElements) {
+    private void prepareForUpdate(ArchiveRoot root, Map<String, AbstractToscaType> previousElements,Map<String, MetaPropConfiguration> metapropsNames) {
         updateCreationDates(root.getArtifactTypes(), previousElements);
         updateCreationDates(root.getCapabilityTypes(), previousElements);
         updateCreationDates(root.getNodeTypes(), previousElements);
+        updateComponentMetaProperties(root.getNodeTypes(), previousElements, metapropsNames);
         updateCreationDates(root.getRelationshipTypes(), previousElements);
         updateCreationDates(root.getDataTypes(), previousElements);
         updateCreationDates(root.getPolicyTypes(), previousElements);
 
         if (root.getLocalImports() != null) {
             for (ArchiveRoot child : root.getLocalImports()) {
-                prepareForUpdate(child, previousElements);
+                prepareForUpdate(child, previousElements, metapropsNames);
+            }
+        }
+    }
+
+    private void feedA4CMetaproperties(IMetaProperties newElement, List<Tag> tags, Map<String, MetaPropConfiguration> metapropsByNames) {
+        if (tags == null) {
+            return;
+        }
+        Map<String, String> metaProperties = newElement.getMetaProperties();
+        if (metaProperties == null) {
+            metaProperties = Maps.newHashMap();
+            newElement.setMetaProperties(metaProperties);
+        }
+        Set<String> tagsToRemove = Sets.newHashSet();
+
+        Iterator<Tag> tagIterator = tags.iterator();
+        while (tagIterator.hasNext()) {
+            Tag tag = tagIterator.next();
+            if (tag.getName().startsWith(A4C_METAPROPERTY_PREFIX)) {
+                String metapropertyName = tag.getName().substring(A4C_METAPROPERTY_PREFIX.length());
+                MetaPropConfiguration metaPropConfig = metapropsByNames.get(metapropertyName);
+                if (metaPropConfig != null) {
+                    // validate tag value using meta prop constraints
+                    try {
+                        ConstraintPropertyService.checkPropertyConstraint(metaPropConfig.getId(), tag.getValue(), metaPropConfig);
+                        metaProperties.put(metaPropConfig.getId(), tag.getValue());
+                        tagIterator.remove();
+                    } catch (ConstraintValueDoNotMatchPropertyTypeException e) {
+                        // TODO: manage error
+                        // for the moment the error is ignored, but the meta-property is not set and the
+                        // tag not removed, so the user can easily guess that something gone wrong ...
+                    } catch (ConstraintViolationException e) {
+                        // TODO: manage error
+                    }
+                }
+            }
+        }
+    }
+
+    private void updateComponentMetaProperties(Map<String, NodeType> newElements, Map<String, AbstractToscaType> previousElements, Map<String, MetaPropConfiguration> metapropsNames) {
+        if (newElements == null) {
+            return;
+        }
+
+//        Map<String, MetaPropConfiguration> metapropsNames = metaPropertiesService.getMetaPropConfigurationsByName(MetaPropertyTarget.COMPONENT);
+
+        for (NodeType newElement : newElements.values()) {
+            feedA4CMetaproperties(newElement, newElement.getTags(), metapropsNames);
+            // now copy meta props from previous type if exists
+            Map<String, String> metaProperties = newElement.getMetaProperties();
+            if (metaProperties == null) {
+                metaProperties = Maps.newHashMap();
+                newElement.setMetaProperties(metaProperties);
+            }
+            AbstractToscaType previousElement = previousElements.get(newElement.getId());
+            if (previousElement != null && previousElement instanceof NodeType) {
+                for (Map.Entry<String, String> previousMetaPropsEntry : safe(((NodeType) previousElement).getMetaProperties()).entrySet()) {
+                    if (!metaProperties.containsKey(previousMetaPropsEntry.getKey())) {
+                        metaProperties.put(previousMetaPropsEntry.getKey(), previousMetaPropsEntry.getValue());
+                    }
+                }
             }
         }
     }
@@ -355,9 +462,12 @@ public class ArchiveIndexer {
         }
     }
 
-    private void performIndexing(ArchiveRoot root) {
+    private void performIndexing(ArchiveRoot root, Map<String, MetaPropConfiguration> metapropsNames) {
         indexerService.indexInheritableElements(root.getArtifactTypes(), root.getArchive().getDependencies());
         indexerService.indexInheritableElements(root.getCapabilityTypes(), root.getArchive().getDependencies());
+        root.getNodeTypes().forEach((id, nodeType) -> {
+            feedA4CMetaproperties(nodeType, nodeType.getTags(), metapropsNames); }
+        );
         indexerService.indexInheritableElements(root.getNodeTypes(), root.getArchive().getDependencies());
         indexerService.indexInheritableElements(root.getRelationshipTypes(), root.getArchive().getDependencies());
         indexerService.indexInheritableElements(root.getDataTypes(), root.getArchive().getDependencies());
@@ -365,7 +475,7 @@ public class ArchiveIndexer {
 
         if (root.getLocalImports() != null) {
             for (ArchiveRoot child : root.getLocalImports()) {
-                performIndexing(child);
+                performIndexing(child, metapropsNames);
             }
         }
     }

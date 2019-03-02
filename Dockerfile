@@ -2,7 +2,7 @@ FROM alpine:3.8
 
 ARG user_uid=1000
 ARG user_gid=1000
-ARG a4c_ver=2.0.0
+ARG a4c_ver=2.1.0
 ARG a4c_install_path=/opt
 ARG a4c_src_dir=alien4cloud
 ARG a4c_install_dir=a4c
@@ -38,9 +38,9 @@ ADD orchestrator-plugin "${a4c_install_path}/deep-orchestrator-plugin"
 ADD a4c "${a4c_install_path}/${a4c_src_dir}"
 ADD indigodc-2-a4c.py "${a4c_install_path}"
 ADD settings-manager "${a4c_install_path}/settings-manager/"
-  
+
 RUN \
-  # Install those dependencies that will be removed afterwards  
+  # Install those dependencies that will be removed afterwards
   apk --no-cache add --virtual build-dependencies \
     libcurl libssh2 curl expat pcre2 git zip libxau libbsd \
     libxdmcp libxcb libx11 libxcomposite libxext libxi \

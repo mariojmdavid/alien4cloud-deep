@@ -8,11 +8,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.alien4cloud.tosca.model.definitions.AbstractPropertyValue;
-import org.alien4cloud.tosca.model.templates.Capability;
-import org.alien4cloud.tosca.model.templates.NodeTemplate;
-import org.alien4cloud.tosca.model.templates.PolicyTemplate;
-import org.alien4cloud.tosca.model.templates.RelationshipTemplate;
-import org.alien4cloud.tosca.model.templates.Topology;
+import org.alien4cloud.tosca.model.templates.*;
 import org.alien4cloud.tosca.model.types.NodeType;
 import org.alien4cloud.tosca.model.types.PolicyType;
 import org.alien4cloud.tosca.model.types.RelationshipType;
@@ -44,6 +40,24 @@ public final class TopologyNavigationUtil {
             return null;
         }
         return topology.getNodeTemplates().get(host.getTarget());
+    }
+
+    public static int getDefaultInstanceCount(Topology topology, NodeTemplate template, int multiplicator) {
+        Capability scalableCapability = TopologyUtils.getScalableCapability(topology, template.getName(), false);
+        int defaultInstanceCount = 1;
+        if (scalableCapability != null) {
+            ScalingPolicy scalingPolicy = TopologyUtils.getScalingPolicy(scalableCapability);
+            if (!ScalingPolicy.NOT_SCALABLE_POLICY.equals(scalingPolicy)) {
+                defaultInstanceCount = scalingPolicy.getInitialInstances();
+            }
+        }
+        // now look for the host
+        NodeTemplate host = getImmediateHostTemplate(topology, template);
+        if (host != null) {
+            return getDefaultInstanceCount(topology, host, multiplicator * defaultInstanceCount);
+        } else {
+            return multiplicator * defaultInstanceCount;
+        }
     }
 
     public static NodeTemplate getImmediateHostTemplate(Topology topology, NodeTemplate template, IToscaTypeFinder toscaTypeFinder) {
@@ -102,6 +116,35 @@ public final class TopologyNavigationUtil {
             }
         }
         return null;
+    }
+
+    /**
+     * @param topology
+     * @param type
+     * @param manageInheritance true if you also want to consider type hierarchy (ie. include that inherit the given type).
+     * @return a set of nodes that are of the given type (or inherit the given type if <code>manageInheritance</code> is true).
+     *
+     * For performance consideration, we don't factorise with {@link this#getNodesOfType(Topology, String, boolean)}.
+     */
+    public static Set<NodeTemplate> getNodesOfType(Topology topology, String type, boolean manageInheritance, boolean includeAbstractNodes) {
+        Set<NodeTemplate> result = Sets.newHashSet();
+        for (NodeTemplate nodeTemplate : safe(topology.getNodeTemplates()).values()) {
+            NodeTemplate candidate = null;
+            NodeType nodeType = ToscaContext.get(NodeType.class, nodeTemplate.getType());
+            if (nodeTemplate.getType().equals(type)) {
+                candidate = nodeTemplate;
+            } else if (manageInheritance) {
+                if (nodeType.getDerivedFrom().contains(type)) {
+                    candidate = nodeTemplate;
+                }
+            }
+            if (candidate != null) {
+                if (includeAbstractNodes || !nodeType.isAbstract()) {
+                    result.add(candidate);
+                }
+            }
+        }
+        return result;
     }
 
     /**

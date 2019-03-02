@@ -1,7 +1,7 @@
 package es.upv.indigodc.service;
 
 
-import es.upv.indigodc.IndigoDcOrchestrator;
+import es.upv.indigodc.OrchestratorPlugin;
 import es.upv.indigodc.TestUtil;
 import es.upv.indigodc.configuration.CloudConfiguration;
 import java.io.File;

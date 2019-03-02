@@ -1,13 +1,13 @@
 package alien4cloud.paas.wf.util;
 
 import static alien4cloud.utils.AlienUtils.safe;
-import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.INSTALL;
-import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.START;
-import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.STOP;
-import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.UNINSTALL;
+import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.*;
 import static org.alien4cloud.tosca.utils.ToscaTypeUtils.isOfType;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -27,6 +27,7 @@ import org.alien4cloud.tosca.model.workflow.activities.DelegateWorkflowActivity;
 import org.alien4cloud.tosca.model.workflow.activities.InlineWorkflowActivity;
 import org.alien4cloud.tosca.model.workflow.activities.SetStateWorkflowActivity;
 import org.alien4cloud.tosca.normative.constants.NormativeComputeConstants;
+import org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants;
 import org.alien4cloud.tosca.utils.TopologyNavigationUtil;
 import org.apache.commons.lang3.StringUtils;
 
@@ -68,8 +69,7 @@ public class WorkflowUtils {
     }
 
     public static boolean isStandardWorkflow(Workflow workflow) {
-        return INSTALL.equals(workflow.getName()) || UNINSTALL.equals(workflow.getName()) || START.equals(workflow.getName())
-                || STOP.equals(workflow.getName());
+        return NormativeWorkflowNameConstants.STANDARD_WORKFLOWS.contains(workflow.getName());
     }
 
     /**
@@ -405,6 +405,11 @@ public class WorkflowUtils {
         return cloned;
     }
 
+    public static Map<String, Workflow> cloneWorkflowMap(Map<String, Workflow> that) {
+        return that.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, entry -> WorkflowUtils.cloneWorkflow(entry.getValue())));
+    }
+
     public static WorkflowStep cloneStep(WorkflowStep step) {
         WorkflowStep cloned;
         if (step instanceof NodeWorkflowStep) {
@@ -442,4 +447,41 @@ public class WorkflowUtils {
         return generateNewWfStepNameWithPrefix("", existingStepNames, newStepNames, stepName);
     }
 
+    public static WorkflowStep findStep(Collection<WorkflowStep> steps, String name) {
+        List<WorkflowStep> result = findSteps(steps, new HashSet<>(Arrays.asList(name)));
+        return result.size() == 0 ? null : result.get(0);
+    }
+
+    public static List<WorkflowStep> findSteps(Collection<WorkflowStep> steps, Set<String> names) {
+        return steps.stream().filter(step -> names.contains(step.getName())).collect(Collectors.toList());
+    }
+
+    /**
+     * Find all the name of preceding nodes of the given step
+     * @param steps All the steps
+     * @param stepName Given step name
+     * @return A set of preceding node names
+     */
+    public static Set<String> findAllPrecedences(Collection<WorkflowStep> steps, String stepName) {
+        Set<String> result = new HashSet<>();
+        rFindAllPrecedences(result, steps, findStep(steps, stepName));
+        return result;
+    }
+
+    private static void rFindAllPrecedences(Set<String> result, Collection<WorkflowStep> steps, WorkflowStep step) {
+        if (step == null) {
+            return;
+        }
+        result.add(step.getName());
+        List<WorkflowStep> preSteps = findSteps(steps, step.getPrecedingSteps());
+        preSteps.forEach(pre -> rFindAllPrecedences(result, steps, pre));
+    }
+
+    /**
+     * Remove the edge between preStep and step
+     */
+    public static void removeEdge(WorkflowStep preStep, WorkflowStep step) {
+        preStep.removeFollowing(step.getName());
+        step.removePreceding(preStep.getName());
+    }
 }

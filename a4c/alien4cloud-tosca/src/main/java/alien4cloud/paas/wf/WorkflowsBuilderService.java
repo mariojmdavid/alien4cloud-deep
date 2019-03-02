@@ -1,14 +1,10 @@
 package alien4cloud.paas.wf;
 
-import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.INSTALL;
-import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.START;
-import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.STOP;
-import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.UNINSTALL;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
@@ -22,9 +18,12 @@ import org.alien4cloud.tosca.model.types.AbstractToscaType;
 import org.alien4cloud.tosca.model.workflow.Workflow;
 import org.alien4cloud.tosca.model.workflow.activities.AbstractWorkflowActivity;
 import org.alien4cloud.tosca.model.workflow.declarative.DefaultDeclarativeWorkflows;
+import org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants;
 import org.elasticsearch.common.collect.Lists;
 import org.elasticsearch.common.collect.Maps;
 import org.springframework.stereotype.Component;
+
+import com.google.common.collect.Sets;
 
 import alien4cloud.component.ICSARRepositorySearchService;
 import alien4cloud.exception.NotFoundException;
@@ -37,6 +36,8 @@ import alien4cloud.tosca.parser.ToscaParser;
 import alien4cloud.utils.AlienUtils;
 import alien4cloud.utils.YamlParserUtil;
 import lombok.extern.slf4j.Slf4j;
+
+import static org.alien4cloud.tosca.normative.constants.NormativeWorkflowNameConstants.*;
 
 @Component
 @Slf4j
@@ -52,7 +53,7 @@ public class WorkflowsBuilderService {
     private CustomWorkflowBuilder customWorkflowBuilder;
 
     @Resource
-    private WorkflowSimplifyService workflowFlattenService;
+    private WorkflowSimplifyService workflowSimplifyService;
 
     private Map<String, DefaultDeclarativeWorkflows> defaultDeclarativeWorkflowsPerDslVersion;
 
@@ -65,13 +66,17 @@ public class WorkflowsBuilderService {
         this.defaultDeclarativeWorkflowsPerDslVersion = new HashMap<>();
         this.defaultDeclarativeWorkflowsPerDslVersion.put(ToscaParser.NORMATIVE_DSL_100, loadDefaultDeclarativeWorkflow("declarative-workflows-2.0.0.yml"));
         this.defaultDeclarativeWorkflowsPerDslVersion.put(ToscaParser.NORMATIVE_DSL_100_URL, loadDefaultDeclarativeWorkflow("declarative-workflows-2.0.0.yml"));
-        this.defaultDeclarativeWorkflowsPerDslVersion.put(ToscaParser.ALIEN_DSL_200, loadDefaultDeclarativeWorkflow("declarative-workflows-2.0.0.yml"));
+        this.defaultDeclarativeWorkflowsPerDslVersion.put(ToscaParser.ALIEN_DSL_200, loadDefaultDeclarativeWorkflow("declarative-workflows-2.0.0-jobs.yml"));
         this.defaultDeclarativeWorkflowsPerDslVersion.put(ToscaParser.ALIEN_DSL_120, loadDefaultDeclarativeWorkflow("declarative-workflows-old.yml"));
         this.defaultDeclarativeWorkflowsPerDslVersion.put(ToscaParser.ALIEN_DSL_130, loadDefaultDeclarativeWorkflow("declarative-workflows-old.yml"));
         this.defaultDeclarativeWorkflowsPerDslVersion.put(ToscaParser.ALIEN_DSL_140, loadDefaultDeclarativeWorkflow("declarative-workflows-old.yml"));
     }
 
-    public TopologyContext initWorkflows(TopologyContext topologyContext) {
+    public DefaultDeclarativeWorkflows getDeclarativeWorkflows(String dslVersion) {
+        return defaultDeclarativeWorkflowsPerDslVersion.get(dslVersion);
+    }
+
+    public void initWorkflows(TopologyContext topologyContext) {
         Map<String, Workflow> wfs = topologyContext.getTopology().getWorkflows();
         if (wfs == null) {
             wfs = Maps.newLinkedHashMap();
@@ -89,18 +94,36 @@ public class WorkflowsBuilderService {
         if (!wfs.containsKey(STOP)) {
             initStandardWorkflow(STOP, topologyContext);
         }
+        if (!wfs.containsKey(RUN)) {
+            initStandardWorkflow(RUN, topologyContext);
+        }
+        if (!wfs.containsKey(CANCEL)) {
+            initStandardWorkflow(CANCEL, topologyContext);
+        }
         postProcessTopologyWorkflows(topologyContext);
-        return topologyContext;
     }
 
-    public void postProcessTopologyWorkflows(TopologyContext topologyContext) {
-        topologyContext.getTopology().getUnprocessedWorkflows().putAll(topologyContext.getTopology().getWorkflows().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> WorkflowUtils.cloneWorkflow(entry.getValue()))));
-        workflowFlattenService.simplifyWorkflow(topologyContext);
-        for (Workflow wf : topologyContext.getTopology().getWorkflows().values()) {
-            workflowValidator.validate(topologyContext, wf);
-        }
+	public void postProcessTopologyWorkflows(TopologyContext tc) {
+    	postProcessTopologyWorkflows(tc, NormativeWorkflowNameConstants.STANDARD_WORKFLOWS);
+	}
+
+    public void postProcessTopologyWorkflows(TopologyContext topologyContext, Set<String> whiteList) {
+    	// Put aside the original workflow
+    	whiteList.forEach(name -> topologyContext.getTopology().getUnprocessedWorkflows().put(name, WorkflowUtils.cloneWorkflow(topologyContext.getTopology().getWorkflow(name))));
+    	// Simplify workflow
+        workflowSimplifyService.simplifyWorkflow(topologyContext, whiteList);
+        whiteList.forEach(name -> workflowValidator.validate(topologyContext, topologyContext.getTopology().getWorkflow(name)));
         debugWorkflow(topologyContext.getTopology());
+    }
+
+    public void refreshTopologyWorkflows(TopologyContext tc) {
+        // Copy the original workflow than put them into the simplified workflow map
+        tc.getTopology().getWorkflows().putAll(WorkflowUtils.cloneWorkflowMap(tc.getTopology().getUnprocessedWorkflows()));
+        workflowSimplifyService.simplifyWorkflow(tc);
+        for (Workflow wf : tc.getTopology().getWorkflows().values()) {
+            workflowValidator.validate(tc, wf);
+        }
+        debugWorkflow(tc.getTopology());
     }
 
     private void initStandardWorkflow(String name, TopologyContext topologyContext) {
@@ -349,7 +372,7 @@ public class WorkflowsBuilderService {
         wf = builder.reinit(wf, topologyContext);
         WorkflowUtils.fillHostId(wf, topologyContext);
         if (simplify) {
-            postProcessTopologyWorkflows(topologyContext);
+            postProcessTopologyWorkflows(topologyContext, Sets.newHashSet(workflowName));
         }
     }
 

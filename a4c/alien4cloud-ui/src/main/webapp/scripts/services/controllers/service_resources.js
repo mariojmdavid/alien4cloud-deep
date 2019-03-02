@@ -32,6 +32,7 @@ define(function (require) {
     ['$scope', '$uibModal', '$alresource', 'searchServiceFactory', 'resizeServices', 'resourceSecurityFactory', 'globalRestErrorHandler', 'relationshipTypeQuickSearchService',
     function($scope, $uibModal, $alresource, searchServiceFactory, resizeServices, resourceSecurityFactory, globalRestErrorHandler, relationshipTypeQuickSearchService) {
       var serviceResourceService = $alresource('rest/latest/services/:serviceId');
+      var serviceResourceDuplicateService = $alresource('rest/latest/services/duplicate/:serviceId');
       var orchestratorsService = $alresource('rest/latest/orchestrators/:id');
       var locationsService = $alresource('rest/latest/orchestrators/:orchestratorId/locations/:id');
       var typeWithDependenciesService = $alresource('rest/latest/catalog/types/adv/typewithdependencies/:typeId/:typeVersion');
@@ -80,12 +81,9 @@ define(function (require) {
       });
 
       $scope.query = '';
-      // onSearchCompleted is used as a callaback for the searchServiceFactory and triggered when the search operation is completed.
-      $scope.onSearchCompleted = function(searchResult) {
-        $scope.serviceResources = searchResult.data.data;
-      };
       // we have to insert the search service in the scope so it is available for the pagination directive.
-      $scope.searchService = searchServiceFactory('rest/latest/services/adv/search', false, $scope, 50);
+      $scope.queryManager = {};
+      $scope.searchService = searchServiceFactory('rest/latest/services/adv/search', false, $scope.queryManager, 50);
       $scope.search = function() {$scope.searchService.search();};
       $scope.search(); // initialize
 
@@ -107,8 +105,11 @@ define(function (require) {
         });
 
         modalInstance.result.then(function(createServiceRequest) {
-          serviceResourceService.create([], angular.toJson(createServiceRequest), function() {
-            $scope.search(); // refresh the view
+          serviceResourceService.create([], angular.toJson(createServiceRequest), function(result) {
+              // Add the new service at the top of the list
+              $scope.queryManager.searchResult.data = [ result.data ].concat($scope.queryManager.searchResult.data);
+              // and select it
+              $scope.selectService(result.data);
           });
         });
       };
@@ -207,6 +208,23 @@ define(function (require) {
             setSelectedTypesToScope();
           }
         }
+      };
+
+      $scope.duplicateServiceResource = function(reourceId, $event) {
+          $event.stopPropagation();
+          if (!reourceId) {
+              return;
+          }
+
+          serviceResourceDuplicateService.get({
+              serviceId: reourceId
+          }, null, function(result) {
+              // Add the new service at the top of the list
+              $scope.queryManager.searchResult.data = [ result.data ].concat($scope.queryManager.searchResult.data);
+              // and select it
+              $scope.selectService(result.data);
+          });
+
       };
 
       $scope.toggleState = function() {

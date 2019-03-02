@@ -28,7 +28,7 @@ The default username / password are *admin*/*admin*. Please change them!
 
 Aside of the official requirements found at [[Res2]](#res2), Alien4Cloud needs at least 3GB of RAM to run and a dual core CPU.
 
-You also need Docker, we tested with the CE version 17.03 and above. 
+You also need Docker, we tested with the CE version 17.03 and above.
 We strongly advise you to install the latest version from the official Docker site.
 
 ### Docker Arguments
@@ -142,15 +142,14 @@ We list some examples in the following paragraphs.
 export ALIEN_URL='http://example.com:8088'
  # Set the cookie file path
 export ALIEN_COOKIE='/tmp/a4c cookie.txt'
- # Authenticate, check if the file
- # This call protects the username and password by using the read call
+ # The next approach protects the username and password by using the read function inside the curl call
  # When you execute the following line, the shell will wait for two values separated by the ENTER key, before executing the curl call
- # The first value is the username, the second is the password
+ # Please type first, the username, next, the password that you would normally enter in the web UI
 
 curl -k -c "${ALIEN_COOKIE}" "$ALIEN_URL/login" --data-urlencode "username=$( read -s U; echo $U )" --data-urlencode "password=$( read -s P; echo $P )" --data-urlencode "submit=Login" -XPOST -H 'Content-Type: application/x-www-form-urlencoded'
 ```
 
-* create a new user (you can select either combination of the roles; we list all available)
+* create a new user (you can create your own combination of the roles; we include all roles available in the following example)
 
 ```
  # Create new user; the cookie must be from an ADMIN type user
@@ -168,12 +167,15 @@ curl -k -b "${ALIEN_COOKIE}" -XPUT -H 'Content-Type: application/json; charset=U
 
 ### Usage
 
-Once Alien4Cloud started, you can connect to it using a supported browser [[Res3]](#res3).
-Before anything else, one should take a look at the [[Res2]](#res2).
+Once Alien4Cloud has started, you can connect to it using a supported browser [[Res3]](#res3).
+Before anything else, one should read the official documentation at [[Res2]](#res2).
 
 #### Plugin activation
 
-The IndigoDataCloud Orchestrator plugin comes preinstalled in the Docker container. It should also be activated by default. Please check the list from **Administration** -> **Plugins**. The switch on the right should be green.
+The IndigoDataCloud Orchestrator plugin comes preinstalled in the Docker container.
+It should also be activated by default.
+Please check the list from **Administration** -> **Plugins**.
+The switch on the right should be green.
 
 #### Instance Creation
 
@@ -218,7 +220,7 @@ _deep-paas.cloud.ba.infn.it/rest/v1_ and _deep-paas.cloud.ba.infn.it/token_ poin
 You also need the port (normally 443 for HTTPS), as you'll see next.
 
 
-1. Install openssl
+1. Install openssl (here, example for apt-based distributions)
 
 ```
 apt-get install openssl
@@ -239,7 +241,7 @@ You need the characters between *-----BEGIN CERTIFICATE-----* and *-----END CERT
 grep -m 1 -ozP '(?<=-----BEGIN\ CERTIFICATE-----)(\n|.)+?(?=-----END\ CERTIFICATE-----)' crt.tmp > crt_solos.tmp
 ```
 
-4. Remove the new lines from one certificate with your prefered approach, e.g.:
+4. Remove the new lines from one certificate with your preferred approach, e.g.:
 
 ```
 cat crt_solos.tmp | tr -d '\n'
@@ -329,8 +331,8 @@ Do not forget to save the topology using the button from the top-left.
 
 #### Text editor
 
-Using the *Archive content* button on the left, you can see the topology in text mode.
-Once you open this ditor view, click on the *topology.yml* file to display its content in the editor.
+Using the *Archive content* button on the left, you can check and edit the topology in text mode.
+Once the UI switched to the *Archive content* view, click on the *topology.yml* file to display its content in the editor.
 
 You can manually modify various properties, but please keep in mind that Alien4Cloud was designed with the UI editor in mind.
 The text editor can behave unexpectedly, e.g. if something is unsupported (like custom outputs) it either deletes
@@ -381,7 +383,7 @@ Thanks for help go to:
 
 ## Resources
 
-#### [Res1] 
+#### [Res1]
 IAM authentication portal: https://iam.deep-hybrid-datacloud.eu
 
 #### [Res2]
@@ -401,4 +403,3 @@ Google Java style on Github: https://github.com/google/google-java-format
 
 #### [Res7]
 Oficial checkstyle repository: https://github.com/checkstyle/checkstyle
-

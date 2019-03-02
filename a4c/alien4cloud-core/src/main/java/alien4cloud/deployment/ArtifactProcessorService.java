@@ -61,17 +61,16 @@ public class ArtifactProcessorService {
     }
 
     private void processLocalArtifact(AbstractArtifact artifact) {
-      log.warn("Ignore artifact " + artifact.getArtifactPath() + " " + artifact.getArtifactRef());
-//        try {
-//            Path csarPath = repository.getExpandedCSAR(artifact.getArchiveName(), artifact.getArchiveVersion());
-//            Path resolvedPath = csarPath.resolve(artifact.getArtifactRef());
-//            if (!Files.exists(resolvedPath)) {
-//                throw new UnresolvableArtifactException("Artifact could not be accessed " + artifact);
-//            }
-//            artifact.setArtifactPath(resolvedPath.toString());
-//        } catch (NotFoundException e) {
-//            throw new UnresolvableArtifactException("Artifact could not be found " + artifact, e);
-//        }
+        try {
+            Path csarPath = repository.getExpandedCSAR(artifact.getArchiveName(), artifact.getArchiveVersion());
+            Path resolvedPath = csarPath.resolve(artifact.getArtifactRef());
+            if (!Files.exists(resolvedPath)) {
+                throw new UnresolvableArtifactException("Artifact could not be accessed " + artifact);
+            }
+            artifact.setArtifactPath(resolvedPath.toString());
+        } catch (NotFoundException e) {
+            throw new UnresolvableArtifactException("Artifact could not be found " + artifact, e);
+        }
     }
 
     private void processArtifact(AbstractArtifact artifact) {
@@ -79,7 +78,7 @@ public class ArtifactProcessorService {
             artifact.setArtifactPath(artifactRepository.resolveFile(artifact.getArtifactRef()).toString());
             return;
         }
-        /*URL artifactURL = null;
+        URL artifactURL = null;
         if (artifact.getRepositoryName() == null) {
             // Short notation
             try {
@@ -114,8 +113,8 @@ public class ArtifactProcessorService {
         }
         if (log.isDebugEnabled()) {
             log.debug("Remote artifact from {} resolved to {}", artifact.getArtifactRef(), artifactPath);
-        }*/
-        artifact.setArtifactPath("");//artifactPath);
+        }
+        artifact.setArtifactPath(artifactPath);
     }
 
     private void processInterfaces(Map<String, Interface> interfaceMap) {
